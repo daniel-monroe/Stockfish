@@ -576,9 +576,10 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     if (!rootNode)
     {
         // Step 2. Check for aborted search and immediate draw
+        auto [eval, err] = evaluate(pos);
         if (Threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? eval
                                                         : value_draw(pos.this_thread());
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -726,7 +727,11 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         // Never assume anything about values stored in TT
         ss->staticEval = eval = tte->eval();
         if (eval == VALUE_NONE)
-            ss->staticEval = eval = evaluate(pos);
+        {
+            auto [eval, err] = evaluate(pos);
+            ss->staticEval   = eval;
+            ss->staticErr    = err;
+        }
         else if (PvNode)
             Eval::NNUE::hint_common_parent_position(pos);
 
@@ -736,7 +741,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     }
     else
     {
-        ss->staticEval = eval = evaluate(pos);
+        auto [eval, err] = evaluate(pos);
+        ss->staticEval   = eval;
+        ss->staticErr    = err;
         // Save static evaluation into the transposition table
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
@@ -1137,6 +1144,11 @@ moves_loop:  // When in check, search starts here
                       + (*contHist[1])[movedPiece][to_sq(move)]
                       + (*contHist[3])[movedPiece][to_sq(move)] - 3848;
 
+        /*
+        if (false && abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && ss->staticEval != VALUE_NONE && ss->staticErr != -1 && depth < 5)
+            ss->statScore += (ss->staticErr - 40) * 100;
+        */
+
         // Decrease/increase reduction for moves with a good/bad history (~25 Elo)
         r -= ss->statScore / (10216 + 3855 * (depth > 5 && depth < 23));
 
@@ -1351,7 +1363,7 @@ moves_loop:  // When in check, search starts here
 // (~155 Elo)
 template<NodeType nodeType>
 Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
-
+  
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
 
@@ -1394,8 +1406,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     moveCount          = 0;
 
     // Step 2. Check for an immediate draw or maximum ply reached
+    auto [eval, err] = evaluate(pos);
     if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+        return (ss->ply >= MAX_PLY && !ss->inCheck) ? eval : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1426,7 +1439,11 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         {
             // Never assume anything about values stored in TT
             if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
-                ss->staticEval = bestValue = evaluate(pos);
+            {
+                auto [eval, err] = evaluate(pos);
+                ss->staticEval        = bestValue = eval;
+                ss->staticErr         = err;
+            }
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (ttValue != VALUE_NONE
@@ -1435,8 +1452,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         }
         else
             // In case of null move search use previous static eval with a different sign
+            auto [eval, err] = evaluate(pos);
             ss->staticEval = bestValue =
-              (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos) : -(ss - 1)->staticEval;
+              (ss - 1)->currentMove != MOVE_NULL ? eval : -(ss - 1)->staticEval;
 
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)

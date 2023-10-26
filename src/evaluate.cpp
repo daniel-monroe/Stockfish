@@ -155,11 +155,12 @@ Value Eval::simple_eval(const Position& pos, Color c) {
 
 // Evaluate is the evaluator for the outer world. It returns a static evaluation
 // of the position from the point of view of the side to move.
-Value Eval::evaluate(const Position& pos) {
+std::tuple<Value, Value> Eval::evaluate(const Position& pos) {
 
     assert(!pos.checkers());
 
     Value v;
+    Value err;
     Color stm        = pos.side_to_move();
     int   shuffling  = pos.rule50_count();
     int   simpleEval = simple_eval(pos, stm) + (int(pos.key() & 7) - 3);
@@ -169,11 +170,14 @@ Value Eval::evaluate(const Position& pos) {
                                      + abs(pos.this_thread()->rootSimpleEval);
 
     if (lazy)
-        v = Value(simpleEval);
+    {
+        v   = Value(simpleEval);
+        err = 40;  // dummy value
+    } 
     else
     {
         int   nnueComplexity;
-        Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+        Value [nnue, err] = NNUE::evaluate(pos, true, &nnueComplexity);
 
         Value optimism = pos.this_thread()->optimism[stm];
 
@@ -191,7 +195,7 @@ Value Eval::evaluate(const Position& pos) {
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
-    return v;
+    return {v, err};
 }
 
 // Like evaluate(), but instead of returning a value, it returns

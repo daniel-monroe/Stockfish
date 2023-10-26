@@ -155,7 +155,7 @@ void hint_common_parent_position(const Position& pos) {
 }
 
 // Evaluation function. Perform differential calculation.
-Value evaluate(const Position& pos, bool adjusted, int* complexity) {
+std::tuple<Value, Value> evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
@@ -194,10 +194,12 @@ Value evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     // Give more value to positional evaluation when adjusted flag is set
     if (adjusted)
-        return static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional)
-                                  / (1024 * OutputScale));
+        return {static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional)
+                                   / (1024 * OutputScale)),
+                static_cast<Value>(error)};
     else
-        return static_cast<Value>((psqt + positional) / OutputScale);
+        return {static_cast<Value>((psqt + positional) / OutputScale),
+                static_cast<Value>(error)};
 }
 
 struct NnueEvalTrace {

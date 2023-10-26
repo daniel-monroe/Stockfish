@@ -116,7 +116,7 @@ static bool read_header(std::istream& stream, std::uint32_t* hashValue, std::str
 static bool write_header(std::ostream& stream, std::uint32_t hashValue, const std::string& desc) {
     write_little_endian<std::uint32_t>(stream, Version);
     write_little_endian<std::uint32_t>(stream, hashValue);
-    write_little_endian<std::uint32_t>(stream, std::uint32_t(desc.size()));
+    write_little_endian<std::uint32_t>(stream, (std::uint32_t) desc.size());
     stream.write(&desc[0], desc.size());
     return !stream.fail();
 }
@@ -175,9 +175,19 @@ Value evaluate(const Position& pos, bool adjusted, int* complexity) {
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int  bucket     = (pos.count<ALL_PIECES>() - 1) / 4;
-    const auto psqt       = featureTransformer->transform(pos, transformedFeatures, bucket);
-    const auto positional = network[bucket]->propagate(transformedFeatures);
+    const int  bucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    const auto psqt   = featureTransformer->transform(pos, transformedFeatures, bucket);
+    const auto [positional, error] = network[bucket]->propagate(transformedFeatures);
+    // error is squared in the non-quantized space
+    // it is not a difference in internal units but in the perf%
+    // it is quantized the same way the internal units head is, so it's a bit weird, but should be fine
+    //
+    // abs(perf%_expected - perf%_actual) | error^2
+    // non-quantized                      | quantized
+    // ~0.065                             | ~2.5*OutputScale    <-- eyeballed average value (40)
+    // 0.25                               | 37.5*OutputScale
+    // 0.5                                | 150*OutputScale
+    // 1.0                                | 600*OutputScale     <-- maximum error
 
     if (complexity)
         *complexity = abs(psqt - positional) / OutputScale;
@@ -221,7 +231,7 @@ static NnueEvalTrace trace_evaluate(const Position& pos) {
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
     {
         const auto materialist = featureTransformer->transform(pos, transformedFeatures, bucket);
-        const auto positional  = network[bucket]->propagate(transformedFeatures);
+        const auto [positional, error] = network[bucket]->propagate(transformedFeatures);
 
         t.psqt[bucket]       = static_cast<Value>(materialist / OutputScale);
         t.positional[bucket] = static_cast<Value>(positional / OutputScale);
@@ -407,8 +417,8 @@ bool save_eval(const std::optional<std::string>& filename) {
     {
         if (currentEvalFileName != EvalFileDefaultName)
         {
-            msg = "Failed to export a net. "
-                  "A non-embedded net can only be saved if the filename is specified";
+            msg =
+              "Failed to export a net. A non-embedded net can only be saved if the filename is specified";
 
             sync_cout << msg << sync_endl;
             return false;

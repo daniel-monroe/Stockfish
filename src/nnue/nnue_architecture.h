@@ -41,6 +41,7 @@ using FeatureSet = Features::HalfKAv2_hm;
 constexpr IndexType TransformedFeatureDimensions = 2048;
 constexpr IndexType PSQTBuckets                  = 8;
 constexpr IndexType LayerStacks                  = 8;
+constexpr IndexType CatBuckets                   = 16;
 
 struct Network {
     static constexpr int FC_0_OUTPUTS = 15;
@@ -53,6 +54,9 @@ struct Network {
     Layers::ClippedReLU<FC_1_OUTPUTS>                                                  ac_1;
     Layers::AffineTransform<FC_1_OUTPUTS, 1>                                           fc_2;
 
+    Layers::AffineTransform<FC_1_OUTPUTS, 1>          fc_error;
+    Layers::AffineTransform<FC_1_OUTPUTS, CatBuckets> fc_cat;
+
     // Hash value embedded in the evaluation file
     static constexpr std::uint32_t get_hash_value() {
         // input slice hash
@@ -64,6 +68,9 @@ struct Network {
         hashValue = decltype(fc_1)::get_hash_value(hashValue);
         hashValue = decltype(ac_1)::get_hash_value(hashValue);
         hashValue = decltype(fc_2)::get_hash_value(hashValue);
+        hashValue = decltype(fc_error)::get_hash_value(hashValue);
+        hashValue = decltype(fc_cat)::get_hash_value(hashValue);
+        hashValue = (hashValue + 0x538D24C7) & 0xFFFFFFFF;
 
         return hashValue;
     }
@@ -72,17 +79,20 @@ struct Network {
     bool read_parameters(std::istream& stream) {
         return fc_0.read_parameters(stream) && ac_0.read_parameters(stream)
             && fc_1.read_parameters(stream) && ac_1.read_parameters(stream)
-            && fc_2.read_parameters(stream);
+            && fc_2.read_parameters(stream) && fc_error.read_parameters(stream)
+            && fc_cat.read_parameters(stream);
     }
 
     // Write network parameters
     bool write_parameters(std::ostream& stream) const {
         return fc_0.write_parameters(stream) && ac_0.write_parameters(stream)
             && fc_1.write_parameters(stream) && ac_1.write_parameters(stream)
-            && fc_2.write_parameters(stream);
+            && fc_2.write_parameters(stream) && fc_error.write_parameters(stream)
+            && fc_cat.write_parameters(stream);
     }
 
-    std::int32_t propagate(const TransformedFeatureType* transformedFeatures) {
+    std::pair<std::int32_t, std::int32_t>
+    propagate(const TransformedFeatureType* transformedFeatures) {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) decltype(ac_sqr_0)::OutputType
@@ -91,6 +101,8 @@ struct Network {
             alignas(CacheLineSize) decltype(fc_1)::OutputBuffer fc_1_out;
             alignas(CacheLineSize) decltype(ac_1)::OutputBuffer ac_1_out;
             alignas(CacheLineSize) decltype(fc_2)::OutputBuffer fc_2_out;
+            alignas(CacheLineSize) decltype(fc_error)::OutputBuffer fc_error_out;
+            alignas(CacheLineSize) decltype(fc_cat)::OutputBuffer fc_cat_out;
 
             Buffer() { std::memset(this, 0, sizeof(*this)); }
         };
@@ -112,14 +124,16 @@ struct Network {
         fc_1.propagate(buffer.ac_sqr_0_out, buffer.fc_1_out);
         ac_1.propagate(buffer.fc_1_out, buffer.ac_1_out);
         fc_2.propagate(buffer.ac_1_out, buffer.fc_2_out);
+        fc_error.propagate(buffer.ac_1_out, buffer.fc_error_out);
 
-        // buffer.fc_0_out[FC_0_OUTPUTS] is such that 1.0 is equal to 127*(1<<WeightScaleBits) in
-        // quantized form, but we want 1.0 to be equal to 600*OutputScale
+        // buffer.fc_0_out[FC_0_OUTPUTS] is such that 1.0 is equal to 127*(1<<WeightScaleBits) in quantized form
+        // but we want 1.0 to be equal to 600*OutputScale
         std::int32_t fwdOut =
           int(buffer.fc_0_out[FC_0_OUTPUTS]) * (600 * OutputScale) / (127 * (1 << WeightScaleBits));
         std::int32_t outputValue = buffer.fc_2_out[0] + fwdOut;
+        std::int32_t errorValue  = buffer.fc_error_out[0];
 
-        return outputValue;
+        return {outputValue, errorValue};
     }
 };
 

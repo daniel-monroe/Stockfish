@@ -176,7 +176,7 @@ std::tuple<Value, Value> Eval::evaluate(const Position& pos) {
     else
     {
         int   nnueComplexity;
-        Value [nnue, net_err] = NNUE::evaluate(pos, true, &nnueComplexity);
+        auto [nnue, net_err] = NNUE::evaluate(pos, true, &nnueComplexity);
         Value optimism = pos.this_thread()->optimism[stm];
 
         // Blend optimism and eval with nnue complexity and material imbalance

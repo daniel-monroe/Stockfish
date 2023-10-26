@@ -340,8 +340,8 @@ std::string trace(Position& pos) {
                 st->accumulator.computed[WHITE] = false;
                 st->accumulator.computed[BLACK] = false;
 
-                Value eval = evaluate(pos);
-                eval       = pos.side_to_move() == WHITE ? eval : -eval;
+                auto [net_eval, net_err] = evaluate(pos);
+                eval       = pos.side_to_move() == WHITE ? net_eval : -net_eval;
                 v          = base - eval;
 
                 pos.put_piece(pc, sq);

@@ -51,7 +51,7 @@ struct Stack {
     bool            ttHit;
     int             doubleExtensions;
     int             cutoffCnt;
-    Value           staticErr = -1;
+    Value           staticErr = Value(-1);
 };
 
 

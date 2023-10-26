@@ -160,7 +160,7 @@ std::tuple<Value, Value> Eval::evaluate(const Position& pos) {
     assert(!pos.checkers());
 
     Value v;
-    Value err;
+    Value err = Value(-1);
     Color stm        = pos.side_to_move();
     int   shuffling  = pos.rule50_count();
     int   simpleEval = simple_eval(pos, stm) + (int(pos.key() & 7) - 3);
@@ -172,13 +172,11 @@ std::tuple<Value, Value> Eval::evaluate(const Position& pos) {
     if (lazy)
     {
         v   = Value(simpleEval);
-        err = 40;  // dummy value
     } 
     else
     {
         int   nnueComplexity;
-        Value [nnue, err] = NNUE::evaluate(pos, true, &nnueComplexity);
-
+        Value [nnue, net_err] = NNUE::evaluate(pos, true, &nnueComplexity);
         Value optimism = pos.this_thread()->optimism[stm];
 
         // Blend optimism and eval with nnue complexity and material imbalance
@@ -187,6 +185,7 @@ std::tuple<Value, Value> Eval::evaluate(const Position& pos) {
 
         int npm = pos.non_pawn_material() / 64;
         v       = (nnue * (915 + npm + 9 * pos.count<PAWN>()) + optimism * (154 + npm)) / 1024;
+        err     = net_err;
     }
 
     // Damp down the evaluation linearly when shuffling

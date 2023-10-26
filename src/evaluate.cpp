@@ -219,11 +219,13 @@ std::string Eval::trace(Position& pos) {
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
     Value v;
-    v = NNUE::evaluate(pos, false);
+    auto [net_eval, net_err] = NNUE::evaluate(pos, false);
+    v                        = net_eval;
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v) << " (white side)\n";
 
-    v = evaluate(pos);
+    auto [eval, err] = evaluate(pos);
+    v                = eval;
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "Final evaluation       " << 0.01 * UCI::to_cp(v) << " (white side)";
     ss << " [with scaled NNUE, ...]";

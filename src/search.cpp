@@ -1144,10 +1144,10 @@ moves_loop:  // When in check, search starts here
                       + (*contHist[1])[movedPiece][to_sq(move)]
                       + (*contHist[3])[movedPiece][to_sq(move)] - 3848;
 
-        /*
-        if (false && abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && ss->staticEval != VALUE_NONE && ss->staticErr != -1 && depth < 5)
-            ss->statScore += (ss->staticErr - 40) * 100;
-        */
+        
+        if (abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && ss->staticEval != VALUE_NONE && ss->staticErr != -1 && depth < 5)
+            ss->statScore += (ss->staticErr - 40) * 30;
+        
 
         // Decrease/increase reduction for moves with a good/bad history (~25 Elo)
         r -= ss->statScore / (10216 + 3855 * (depth > 5 && depth < 23));

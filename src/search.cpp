@@ -69,13 +69,12 @@ static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
 static constexpr int reduction_quantizer = 64;
 static constexpr int n_reduction_inputs  = 9;
 
-static constexpr int reduction_bias                              = 0;
-static constexpr int  ReductionMonomialCoeffs[n_reduction_inputs]                        = {0};
-static constexpr int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {
-  0};
+static int reduction_bias   = 0;
+static int ReductionMonomialCoeffs[n_reduction_inputs] = {0};
+static int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {0};
 
 
-//TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
+TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
@@ -1160,13 +1159,13 @@ moves_loop:  // When in check, search starts here
         constexpr int n_inputs             = 9;
         const int conditions[n_inputs] = {reduction_quantizer * (ss->ttPv),
                                   reduction_quantizer * (ttValue > alpha),
-                                  reduction_quantizer * (tte->depth() >= depth,
+                                  reduction_quantizer * (tte->depth() >= depth),
                                   reduction_quantizer * cutNode,
                                   reduction_quantizer * ttCapture,
                                   reduction_quantizer * PvNode,
                                   std::min(reduction_quantizer * (ss + 1)->cutoffCnt / 3, reduction_quantizer * 2),
                                   reduction_quantizer * (move == ttMove),
-                                  reduction_quantizer * statScore / 16384};
+                                  reduction_quantizer * ss->statScore / 16384};
 
 
         int monomial_total = 0;
@@ -1178,7 +1177,7 @@ moves_loop:  // When in check, search starts here
         int binomial_total = 0;
         for (int i = 0; i < n_inputs; i++)
         {
-            if (conditions[i] = 0)
+            if (conditions[i] == 0)
                 continue;
             for (int j = 0; j < i; j++)
             {
@@ -1187,7 +1186,7 @@ moves_loop:  // When in check, search starts here
             }
         }
 
-        total_reduction = monomial_total + binomial_total * reduction_quantizer
+        int total_reduction = binomial_total + monomial_total * reduction_quantizer
                         + reduction_bias * reduction_quantizer * reduction_quantizer;
         total_reduction /= (pow(reduction_quantizer, 3));
 

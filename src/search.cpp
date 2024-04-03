@@ -1188,9 +1188,11 @@ moves_loop:  // When in check, search starts here
 
         int total_reduction = binomial_total + monomial_total * reduction_quantizer
                         + reduction_bias * reduction_quantizer * reduction_quantizer;
-        total_reduction /= (pow(reduction_quantizer, 3));
+        total_reduction /= (pow(reduction_quantizer, 2));
 
-        r += total_reduction;
+				int X = nodes % reduction_quantizer;
+        r += total_reduction / reduction_quantizer;
+        r += (total_reduction >= X);
 
         if (move == ttMove)
             r = 0;

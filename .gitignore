@@ -10,3 +10,14 @@ src/-lstdc++.res
 # Neural network for the NNUE evaluation
 **/*.nnue
 
+/.vs/ProjectSettings.json
+/.vs/slnx.sqlite
+/.vs/Stockfish/FileContentIndex
+/.vs/Stockfish/FileContentIndex/15e42792-22ce-4b8e-a5b9-ee95b095c017.vsidx
+/.vs/Stockfish/v17
+/.vs/Stockfish/v17/.wsuo
+/.vs/Stockfish/v17/Browse.VC.db
+/.vs/Stockfish/v17/Browse.VC.db-shm
+/.vs/Stockfish/v17/Browse.VC.db-wal
+/.vs/Stockfish/v17/Browse.VC.opendb
+/.vs/VSWorkspaceState.json

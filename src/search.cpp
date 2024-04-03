@@ -73,6 +73,9 @@ static int reduction_bias   = 0;
 static int ReductionMonomialCoeffs[n_reduction_inputs] = {0};
 static int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {0};
 
+TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
+
+
 
 
 // Futility margin
@@ -1148,7 +1151,6 @@ moves_loop:  // When in check, search starts here
         // move == ttMove
         // ss->statScore / 13659
 
-        TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
 
 
         ss->statScore =

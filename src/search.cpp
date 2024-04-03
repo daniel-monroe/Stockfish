@@ -56,6 +56,26 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+
+// ttPv
+// ttValue > alpha
+// tte->depth() >= depth
+// cutNode
+// ttCapture
+// PvNode
+// (ss + 1)->cutoffCnt / 3
+// move == ttMove
+// ss->statScore / 13659
+static constexpr int reduction_quantizer = 64;
+static constexpr int n_reduction_inputs  = 9;
+
+static int reduction_bias   = 0;
+static int ReductionMonomialCoeffs[n_reduction_inputs] = {0};
+static int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {0};
+
+
+TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
@@ -976,6 +996,9 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks (~11 Elo)
+                /* !!!
+                split for king weakening, separate 4 small depths (material)?
+                */
                 if (!pos.see_ge(move, -203 * depth))
                     continue;
             }
@@ -995,6 +1018,7 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 5637;
 
+                // !! endgame the 125?
                 Value futilityValue =
                   ss->staticEval + (bestValue < ss->staticEval - 59 ? 141 : 58) + 125 * lmrDepth;
 
@@ -1003,12 +1027,14 @@ moves_loop:  // When in check, search starts here
                 {
                     if (bestValue <= futilityValue && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
                         && futilityValue < VALUE_TB_WIN_IN_MAX_PLY)
+                        // !!! tune?
                         bestValue = (bestValue + futilityValue * 3) / 4;
                     continue;
                 }
 
                 lmrDepth = std::max(lmrDepth, 0);
 
+                //!!! more tune
                 // Prune moves with negative SEE (~4 Elo)
                 if (!pos.see_ge(move, -27 * lmrDepth * lmrDepth))
                     continue;
@@ -1110,38 +1136,65 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
-        // Decrease reduction if position is or has been on the PV (~7 Elo)
-        if (ss->ttPv)
-            r -= 1 + (ttValue > alpha) + (tte->depth() >= depth);
 
-        // Increase reduction for cut nodes (~4 Elo)
-        if (cutNode)
-            r += 2 - (tte->depth() >= depth && ss->ttPv);
+        // lots of tuning for reductions, merge, divide by 16
+        //
+        // ttPv
+        // ttValue > alpha
+        // tte->depth() >= depth
+        // cutNode
+        // ttCapture
+        // PvNode
+        // (ss + 1)->cutoffCnt / 3
+        // move == ttMove
+        // ss->statScore / 13659
 
-        // Increase reduction if ttMove is a capture (~3 Elo)
-        if (ttCapture)
-            r++;
+        // For each pair (a,b) we evaluate
 
-        // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
-        if (PvNode)
-            r--;
 
-        // Increase reduction if next ply has a lot of fail high (~5 Elo)
-        if ((ss + 1)->cutoffCnt > 3)
-            r++;
+        ss->statScore =
+          2 * thisThread->mainHistory[us][move.from_to()] + (*contHist[0])[movedPiece][move.to_sq()]
+          + (*contHist[1])[movedPiece][move.to_sq()] + (*contHist[3])[movedPiece][move.to_sq()];
 
-        // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
-        // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
-        else if (move == ttMove)
+        constexpr int n_inputs             = 9;
+        const int conditions[n_inputs] = {reduction_quantizer * (ss->ttPv),
+                                  reduction_quantizer * (ttValue > alpha),
+                                  reduction_quantizer * (tte->depth() >= depth,
+                                  reduction_quantizer * cutNode,
+                                  reduction_quantizer * ttCapture,
+                                  reduction_quantizer * PvNode,
+                                  std::min(reduction_quantizer * (ss + 1)->cutoffCnt / 3, reduction_quantizer * 2),
+                                  reduction_quantizer * (move == ttMove),
+                                  reduction_quantizer * statScore / 16384};
+
+
+        int monomial_total = 0;
+        for (int i = 0; i < n_inputs; i++)
+        {
+            monomial_total += ReductionMonomialCoeffs[i] * conditions[i];
+        }
+
+        int binomial_total = 0;
+        for (int i = 0; i < n_inputs; i++)
+        {
+            if (conditions[i] = 0)
+                continue;
+            for (int j = 0; j < i; j++)
+            {
+                binomial_total += ReductionBinomialCoeffs[n_reduction_inputs * i + j]
+                                * conditions[i] * conditions[j];
+            }
+        }
+
+        total_reduction = monomial_total + binomial_total * reduction_quantizer
+                        + reduction_bias * reduction_quantizer * reduction_quantizer;
+        total_reduction /= (pow(reduction_quantizer, 3));
+
+        r += total_reduction;
+
+        if (move == ttMove)
             r = 0;
 
-        ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()]
-                      + (*contHist[3])[movedPiece][move.to_sq()] - 4723;
-
-        // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore / 13659;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1 + rootNode)

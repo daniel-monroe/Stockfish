@@ -69,12 +69,13 @@ static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
 static constexpr int reduction_quantizer = 64;
 static constexpr int n_reduction_inputs  = 9;
 
-static int reduction_bias   = 0;
-static int ReductionMonomialCoeffs[n_reduction_inputs] = {0};
-static int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {0};
+static constexpr int reduction_bias                              = 0;
+static constexpr int  ReductionMonomialCoeffs[n_reduction_inputs]                        = {0};
+static constexpr int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {
+  0};
 
 
-TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
+//TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {

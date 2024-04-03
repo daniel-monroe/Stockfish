@@ -74,7 +74,6 @@ static int ReductionMonomialCoeffs[n_reduction_inputs] = {0};
 static int ReductionBinomialCoeffs[(n_reduction_inputs * (n_reduction_inputs + 1)) / 2] = {0};
 
 
-TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
@@ -1149,7 +1148,7 @@ moves_loop:  // When in check, search starts here
         // move == ttMove
         // ss->statScore / 13659
 
-        // For each pair (a,b) we evaluate
+        TUNE(SetRange(-256, 256), reduction_bias, ReductionMonomialCoeffs, ReductionBinomialCoeffs);
 
 
         ss->statScore =
@@ -1168,6 +1167,7 @@ moves_loop:  // When in check, search starts here
                                   reduction_quantizer * ss->statScore / 16384};
 
 
+				
         int monomial_total = 0;
         for (int i = 0; i < n_inputs; i++)
         {
@@ -1175,24 +1175,24 @@ moves_loop:  // When in check, search starts here
         }
 
         int binomial_total = 0;
+        int idx            = 0;
         for (int i = 0; i < n_inputs; i++)
         {
-            if (conditions[i] == 0)
-                continue;
-            for (int j = 0; j < i; j++)
+            for (int j = 0; j <= i; j++)
             {
-                binomial_total += ReductionBinomialCoeffs[n_reduction_inputs * i + j]
+                binomial_total += ReductionBinomialCoeffs[idx]
                                 * conditions[i] * conditions[j];
+                idx++;
             }
         }
 
-        int total_reduction = binomial_total + monomial_total * reduction_quantizer
-                        + reduction_bias * reduction_quantizer * reduction_quantizer;
-        total_reduction /= (pow(reduction_quantizer, 2));
+        int total_reduction = binomial_total + monomial_total * reduction_quantizer + reduction_bias * reduction_quantizer;
+        total_reduction /= (reduction_quantizer * reduction_quantizer);
 
-				int X = nodes % reduction_quantizer;
-        r += total_reduction / reduction_quantizer;
-        r += ((total_reduction + reduction_quantizer * 100) % reduction_quantizer >= X);
+        int X = (nodes % reduction_quantizer) - reduction_quantizer / 2;
+
+        r += std::round((float(total_reduction) - X) / reduction_quantizer);
+				
 
         if (move == ttMove)
             r = 0;

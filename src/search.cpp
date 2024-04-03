@@ -1192,7 +1192,7 @@ moves_loop:  // When in check, search starts here
 
 				int X = nodes % reduction_quantizer;
         r += total_reduction / reduction_quantizer;
-        r += (total_reduction >= X);
+        r += ((total_reduction + reduction_quantizer * 100) % reduction_quantizer >= X);
 
         if (move == ttMove)
             r = 0;

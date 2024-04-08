@@ -10,3 +10,27 @@ src/-lstdc++.res
 # Neural network for the NNUE evaluation
 **/*.nnue
 
+/.vs
+/.vs/ProjectSettings.json
+/.vs/slnx.sqlite
+/.vs/Stockfish
+/.vs/Stockfish/FileContentIndex
+/.vs/Stockfish/FileContentIndex/6b41a123-75f8-46dd-a1f3-a668dde4beaf.vsidx
+/.vs/Stockfish/v17
+/.vs/Stockfish/v17/.wsuo
+/.vs/Stockfish/v17/Browse.VC.db
+/.vs/Stockfish/v17/Browse.VC.db-shm
+/.vs/Stockfish/v17/Browse.VC.db-wal
+/.vs/Stockfish/v17/Browse.VC.opendb
+/.vs/Stockfish/v17/ipch/AutoPCH
+/.vs/Stockfish/v17/ipch/AutoPCH/5b4f3cd833f48800
+/.vs/Stockfish/v17/ipch/AutoPCH/5b4f3cd833f48800/VCTMP1724_303903.SEARCH.00000000.ipch
+/.vs/Stockfish/v17/ipch/AutoPCH/959f34ec2e8842e5
+/.vs/Stockfish/v17/ipch/AutoPCH/959f34ec2e8842e5/TIMEMAN.ipch
+/.vs/Stockfish/v17/ipch/AutoPCH/ae70a553b08786b3
+/.vs/Stockfish/v17/ipch/AutoPCH/ae70a553b08786b3/VCTMP10416_355091.SEARCH.00000000.ipch
+/.vs/Stockfish/v17/ipch/AutoPCH/afb528bcf06d6353
+/.vs/Stockfish/v17/ipch/AutoPCH/afb528bcf06d6353/VCTMP1724_812462.SEARCH.00000000.ipch
+/.vs/Stockfish/v17/ipch/AutoPCH/ca1da576a4c71cf8
+/.vs/Stockfish/v17/ipch/AutoPCH/ca1da576a4c71cf8/SEARCH.ipch
+/.vs/VSWorkspaceState.json

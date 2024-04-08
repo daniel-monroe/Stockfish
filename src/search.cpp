@@ -56,16 +56,37 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+static constexpr int FutilityByDepthAndCutNode[12] = {0}; //0, 4000
+static constexpr int FutilityMoveCountByDepthAndImproving[12, 2] = {0} //0, 200
+
+static constexpr int    StatBonusByDepth[10]                     = {0};  //0, 2000
+static constexpr int    StatMalusByDepth[10]                     = {0}; //0, 2000
+
+static constexpr int PruningSeeOneByDepthAndCheck[15, 2] = {0};  //0, 3000 NEGATE THIS
+static constexpr int PruningSeeTwoByDepth[15]   = {0};  //0, 3000 NEGATE THIS
+static constexpr int FutilityLmrByDepth[15]            = {0};  //0, 3000 NEGATE THIS
+
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
     Value improvingDeduction = 53 * improving * futilityMult / 32;
     Value worseningDeduction = (309 + 47 * improving) * oppWorsening * futilityMult / 1024;
 
+    // max depth used here is 11
+    return FutilityByDepthAndCutNode[std::min(d, 11)][!noTtCutNode] - improvingDeduction
+         - worseningDeduction;
+
     return futilityMult * d - improvingDeduction - worseningDeduction;
 }
 
 constexpr int futility_move_count(bool improving, Depth depth) {
+    
+	  if (depth >= 12)
+        return 999;
+	  return FutilityMoveCountByDepthAndImproving[depth][improving];
+
     return improving ? (3 + depth * depth) : (3 + depth * depth) / 2;
 }
 
@@ -77,10 +98,20 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 }
 
 // History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::clamp(245 * d - 320, 0, 1296); }
+int stat_bonus(Depth d) {
+  
+	return StatBonusByDepth[std::min(d, std::size(StatBonusByDepth) - 1))];
+  return std::clamp(245 * d - 320, 0, 1296);
+
+}
 
 // History and stats update malus, based on depth
-int stat_malus(Depth d) { return (d < 4 ? 554 * d - 303 : 1203); }
+int stat_malus(Depth d) {
+  
+  return StatMalusByDepth[std::min(d, std::size(StatMalusByDepth) - 1))];
+  return (d < 4 ? 554 * d - 303 : 1203);
+
+}
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -813,6 +844,8 @@ Value Search::Worker::search(
         }
     }
 
+    // !!! these can be tuned to increase reduction based on depth, especially second
+		
     // Step 10. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth by 3.
     if (PvNode && !ttMove)
@@ -976,8 +1009,14 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks (~11 Elo)
-                if (!pos.see_ge(move, -203 * depth))
-                    continue;
+
+                if (depth <= 14)
+                {
+                    int see_bound = -PruningSeeOneByDepthAndCheck[depth][givesCheck]);
+
+                    if (!pos.see_ge(move, see_bound))
+                        continue;
+                }
             }
             else
             {
@@ -995,23 +1034,34 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 5637;
 
-                Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 59 ? 141 : 58) + 125 * lmrDepth;
 
-                // Futility pruning: parent node (~13 Elo)
-                if (!ss->inCheck && lmrDepth < 15 && futilityValue <= alpha)
+								if (lmrDepth < 15)
                 {
-                    if (bestValue <= futilityValue && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
-                        && futilityValue < VALUE_TB_WIN_IN_MAX_PLY)
-                        bestValue = (bestValue + futilityValue * 3) / 4;
-                    continue;
+                    Value futilityValue = ss->staticEval
+                                        + (bestValue < ss->staticEval - 59 ? 141 : 58)
+                                        + FutilityLmrByDepth[lmrDepth];
+
+                    // Futility pruning: parent node (~13 Elo)
+                    if (!ss->inCheck && futilityValue <= alpha)
+                    {
+                        if (bestValue <= futilityValue
+                            && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
+                            && futilityValue < VALUE_TB_WIN_IN_MAX_PLY)
+                            bestValue = (bestValue + futilityValue * 3) / 4;
+                        continue;
+                    }
                 }
 
                 lmrDepth = std::max(lmrDepth, 0);
 
                 // Prune moves with negative SEE (~4 Elo)
-                if (!pos.see_ge(move, -27 * lmrDepth * lmrDepth))
-                    continue;
+
+								if (lmrDepth <= 14)
+                {
+                    int see_bound = -PruningSeeTwoByDepth[lmrDepth];
+                    if (!pos.see_ge(move, see_bound))
+                        continue;
+                }
             }
         }
 

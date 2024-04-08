@@ -56,6 +56,15 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+static int SeeOneByDepthCheck[15] = {0, 200, 400, 600, 800, 1000, 1200, 1400, 1600,
+																1800, 2000, 2200, 2400, 2600, 2800};
+
+
+static int SeeOneByDepthNoCheck[15] = {0, 200,  400,  600,  800,  1000, 1200, 1400,
+                                     1600, 1800, 2000, 2200, 2400, 2600, 2800};
+
+TUNE(SeeOneByDepthCheck, SeeOneByDepthNoCheck);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
@@ -975,9 +984,25 @@ moves_loop:  // When in check, search starts here
                         continue;
                 }
 
-                // SEE based pruning for captures and checks (~11 Elo)
-                if (!pos.see_ge(move, -203 * depth))
-                    continue;
+								if (depth <= 14)
+                {
+                    // SEE based pruning for captures and checks (~11 Elo)
+                    if (givesCheck)
+                    {
+                        if (!pos.see_ge(move, -SeeOneByDepthCheck[depth]))
+                            continue;
+										
+                    }
+                    else
+                    {
+                        if (!pos.see_ge(move, -SeeOneByDepthNoCheck[depth]))
+                            continue;
+											
+                    }
+											
+											
+                    
+                }
             }
             else
             {

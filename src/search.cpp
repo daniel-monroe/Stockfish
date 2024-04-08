@@ -56,15 +56,23 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
-static constexpr int FutilityByDepthAndCutNode[12] = {0}; //0, 4000
-static constexpr int FutilityMoveCountByDepthAndImproving[12, 2] = {0} //0, 200
+static int FutilityByDepthAndCutNode[12][2] = {0}; //0, 4000
+static int FutilityMoveCountByDepthAndImproving[12][2] = {0};  //0, 200
 
-static constexpr int    StatBonusByDepth[10]                     = {0};  //0, 2000
-static constexpr int    StatMalusByDepth[10]                     = {0}; //0, 2000
+static int    StatBonusByDepth[10]                     = {0};  //0, 2000
+static int    StatMalusByDepth[10]                     = {0}; //0, 2000
 
-static constexpr int PruningSeeOneByDepthAndCheck[15, 2] = {0};  //0, 3000 NEGATE THIS
-static constexpr int PruningSeeTwoByDepth[15]   = {0};  //0, 3000 NEGATE THIS
-static constexpr int FutilityLmrByDepth[15]            = {0};  //0, 3000 NEGATE THIS
+static int PruningSeeOneByDepthAndCheck[15][2] = {0};  //0, 3000 NEGATE THIS
+static int PruningSeeTwoByDepth[15]   = {0};  //0, 3000 NEGATE THIS
+static int FutilityLmrByDepth[15]            = {0};  //0, 3000 NEGATE THIS
+
+TUNE(SetRange(0, 4000), FutilityByDepthAndCutNode);
+TUNE(SetRange(0, 200), FutilityMoveCountByDepthAndImproving);
+TUNE(SetRange(0, 2000), StatBonusByDepth);
+TUNE(SetRange(0, 2000), StatMalusByDepth);
+TUNE(SetRange(0, 3000), PruningSeeOneByDepthAndCheck);
+TUNE(SetRange(0, 3000), PruningSeeTwoByDepth);
+TUNE(SetRange(0, 3000), FutilityLmrByDepth);
 
 
 
@@ -100,7 +108,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 // History and stats update bonus, based on depth
 int stat_bonus(Depth d) {
   
-	return StatBonusByDepth[std::min(d, std::size(StatBonusByDepth) - 1))];
+	return StatBonusByDepth[std::min(d, 9) ];
   return std::clamp(245 * d - 320, 0, 1296);
 
 }
@@ -108,7 +116,7 @@ int stat_bonus(Depth d) {
 // History and stats update malus, based on depth
 int stat_malus(Depth d) {
   
-  return StatMalusByDepth[std::min(d, std::size(StatMalusByDepth) - 1))];
+  return StatMalusByDepth[std::min(d, 9)  ];
   return (d < 4 ? 554 * d - 303 : 1203);
 
 }
@@ -1012,7 +1020,7 @@ moves_loop:  // When in check, search starts here
 
                 if (depth <= 14)
                 {
-                    int see_bound = -PruningSeeOneByDepthAndCheck[depth][givesCheck]);
+                    int see_bound = -PruningSeeOneByDepthAndCheck[depth][givesCheck];
 
                     if (!pos.see_ge(move, see_bound))
                         continue;

@@ -56,6 +56,16 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+static int w1 = 48, w2 = 48, w3 = 48, w4=32;
+TUNE(SetRange(0, 64), w1, w2, w3, w4);
+
+inline int wmean(Value v1, Value v2, int w) { 
+
+    Value out = (w * v1 + (64 - w) * v2) / 64;
+    return std::clamp(out, VALUE_TB_LOSS_IN_MAX_PLY + 1, +VALUE_TB_WIN_IN_MAX_PLY - 1);
+}
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
@@ -632,7 +642,7 @@ Value Search::Worker::search(
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
             return ttValue >= beta && std::abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY
-                   ? (ttValue * 3 + beta) / 4
+                   ? wmean(ttValue, beta, w1)
                    : ttValue;
     }
 
@@ -770,7 +780,7 @@ Value Search::Worker::search(
                - (ss - 1)->statScore / 267
              >= beta
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttMove || ttCapture))
-        return beta > VALUE_TB_LOSS_IN_MAX_PLY ? (eval + beta) / 2 : eval;
+        return beta > VALUE_TB_LOSS_IN_MAX_PLY ? wmean(eval, beta, w4) : eval;  
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 16878
@@ -1003,7 +1013,7 @@ moves_loop:  // When in check, search starts here
                 {
                     if (bestValue <= futilityValue && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
                         && futilityValue < VALUE_TB_WIN_IN_MAX_PLY)
-                        bestValue = (bestValue + futilityValue * 3) / 4;
+                        bestValue = wmean(futilityValue, bestValue, w2); // !!!
                     continue;
                 }
 
@@ -1614,7 +1624,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     }
 
     if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY && bestValue >= beta)
-        bestValue = (3 * bestValue + beta) / 4;
+        bestValue = wmean(bestValue, beta, w3); // !!!
 
     // Save gathered info in transposition table
     // Static evaluation is saved as it was before adjustment by correction history

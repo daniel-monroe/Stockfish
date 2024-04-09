@@ -56,6 +56,19 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+static int w1 = 64;
+static int w2 = 64;
+static int m1  = 0;
+static int b1  = 0;
+static int m2  = 0;
+static int b2  = 0;
+
+TUNE(SetRange(0, 128), w1, w2);
+TUNE(SetRange(-20, 20), m1, m2);
+TUNE(SetRange(-300, 300), b1, b2);
+
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
@@ -793,10 +806,15 @@ Value Search::Worker::search(
         pos.undo_null_move();
 
         // Do not return unproven mate or TB scores
-        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
+        if (nullValue >=  beta + m1 * depth + b1 && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
         {
             if (thisThread->nmpMinPly || depth < 16)
-                return nullValue;
+            {
+                int out = (w1 * nullValue + (64 - w1) * beta);
+                out = std::clamp(out, VALUE_TB_LOSS_IN_MAX_PLY+1,  VALUE_TB_WIN_IN_MAX_PLY - 1);
+                return out;
+            }
+						  
 
             assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
 
@@ -808,8 +826,12 @@ Value Search::Worker::search(
 
             thisThread->nmpMinPly = 0;
 
-            if (v >= beta)
-                return nullValue;
+            if (v >= beta + m2 * depth + b2)
+            {
+                int out = (w2 * v + (64 - w2) * beta);
+                out = std::clamp(out, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+                return out;
+            }
         }
     }
 

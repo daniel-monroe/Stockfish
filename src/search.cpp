@@ -56,13 +56,20 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+static int Futilities[12] = {0, 118, 236, 354, 472, 590, 708, 826, 944, 1062, 1180, 1298};
+static int NoCutNodeMultiplier = 40;
+
+TUNE(Futilities, NoCutNodeMultiplier);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
     Value improvingDeduction = 53 * improving * futilityMult / 32;
     Value worseningDeduction = (309 + 47 * improving) * oppWorsening * futilityMult / 1024;
 
-    return futilityMult * d - improvingDeduction - worseningDeduction;
+		Value f = Futilities[d] * (noTtCutNode ? NoCutNodeMultiplier : 64) / 64;
+
+    return f - improvingDeduction - worseningDeduction;
 }
 
 constexpr int futility_move_count(bool improving, Depth depth) {

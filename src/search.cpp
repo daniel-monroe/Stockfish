@@ -69,6 +69,17 @@ TUNE(SetRange(-300, 300), b1, b2);
 
 
 
+inline int wmean(Value v1, Value v2, int w) {
+  
+  Value out = (w * v1 + (64 - w) * v2) / 64;
+  return std::clamp(out, VALUE_TB_LOSS_IN_MAX_PLY + 1,
+                    VALUE_TB_WIN_IN_MAX_PLY - 1);
+
+}
+
+
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
@@ -810,9 +821,7 @@ Value Search::Worker::search(
         {
             if (thisThread->nmpMinPly || depth < 16)
             {
-                int out = (w1 * nullValue + (64 - w1) * beta);
-                out = std::clamp(out, VALUE_TB_LOSS_IN_MAX_PLY+1,  VALUE_TB_WIN_IN_MAX_PLY - 1);
-                return out;
+                return wmean(nullValue, beta, w1);
             }
 						  
 
@@ -828,9 +837,8 @@ Value Search::Worker::search(
 
             if (v >= beta + m2 * depth + b2)
             {
-                int out = (w2 * v + (64 - w2) * beta);
-                out = std::clamp(out, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
-                return out;
+                return wmean(v, beta, w2);
+
             }
         }
     }

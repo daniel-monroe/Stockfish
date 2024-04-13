@@ -56,14 +56,14 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
-static int SeeOneByDepthCheck[15] = {0, 200, 400, 600, 800, 1000, 1200, 1400, 1600,
-																1800, 2000, 2200, 2400, 2600, 2800};
+static constexpr int SeeOneByDepthCheck[15] = {0,    195,  373,  615,  827,  993,  1169, 1380,
+                                     1529, 1831, 2012, 2200, 2400, 2600, 2800};
 
 
-static int SeeOneByDepthNoCheck[15] = {0, 200,  400,  600,  800,  1000, 1200, 1400,
-                                     1600, 1800, 2000, 2200, 2400, 2600, 2800};
+static constexpr int SeeOneByDepthNoCheck[15] = {0,    200,  399,  560,  819,  1056, 1239, 1291,
+                                       1685, 1866, 2030, 2200, 2400, 2600, 2800};
 
-TUNE(SeeOneByDepthCheck, SeeOneByDepthNoCheck);
+// TUNE(SeeOneByDepthCheck, SeeOneByDepthNoCheck);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {

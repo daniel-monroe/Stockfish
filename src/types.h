@@ -185,6 +185,8 @@ constexpr Value PieceValue[PIECE_NB] = {
   VALUE_ZERO, PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_ZERO, VALUE_ZERO};
 
 using Depth = int;
+using DepthBudget = float;
+
 
 enum : int {
     DEPTH_QS_CHECKS    = 0,

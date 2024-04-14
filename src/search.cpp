@@ -56,18 +56,15 @@ static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
 
-
-                //     {1, 1, 1, 2, 1, 1, 1, 1, 2, 3}
-
+//     {1, 1, 1, 2, 1, 1, 1, 1, 2, 3}
 
 
+static int es[9]  = {1020, 2024, 1005, 996, 2031, -2912, -2042, -1057, 992};
+static int rs[11] = {983, 1081, 1032, 2023, 987, 968, 1034, 986, 2034, 2847, 1024};
+static int ds[3]  = {3 * 1024, 2 * 1024, 2 * 1024};
 
+static int rrs[10] = {0};
 
-
-static int es[9] = {1 * 1024,  2 * 1024,  1 * 1024,  1 * 1024, 2 * 1024,
-                   -3 * 1024, -2 * 1024, -1 * 1024, 1 * 1024};
-static int rs[10]  = {1 * 1024, 1 * 1024, 1 * 1024, 2 * 1024, 1 * 1024,
-                    1 * 1024, 1 * 1024, 1 * 1024, 2 * 1024, 3 * 1024};
 
 float e1 = (float) es[0] / 1024, e2 = (float) es[1] / 1024, e3 = (float) es[2] / 1024,
       e4 = (float) es[3] / 1024, e5 = (float) es[4] / 1024, e6 = (float) es[5] / 1024,
@@ -75,14 +72,22 @@ float e1 = (float) es[0] / 1024, e2 = (float) es[1] / 1024, e3 = (float) es[2] /
 float r1 = (float) rs[0] / 1024, r2 = (float) rs[1] / 1024, r3 = (float) rs[2] / 1024,
       r4 = (float) rs[3] / 1024, r5 = (float) rs[4] / 1024, r6 = (float) rs[5] / 1024,
       r7 = (float) rs[6] / 1024, r8 = (float) rs[7] / 1024, r9 = (float) rs[8] / 1024,
-      r10 = (float) rs[9] / 1024;
+      r10 = (float) rs[9] / 1024, r11 = (float) rs[10] / 1024;
 
-int rd = 13679;
+float d0 = (float) ds[0] / 1024, d1 = (float) ds[1] / 1024, d2 = (float) ds[2] / 1024;
+
+int rd = 13891;
+
+
+
 
 
 TUNE(es);
 TUNE(rs);
 TUNE(rd);
+TUNE(ds);
+TUNE(SetRange(-1024, 1024), rrs);
+
 
 
 
@@ -848,7 +853,7 @@ Value Search::Worker::search(
     // Step 10. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth by 3.
     if (PvNode && !ttMove)
-        depth -= 3;
+        depth -= d0;
 
     // Use qsearch if depth <= 0.
     if (depth <= 0)
@@ -856,7 +861,7 @@ Value Search::Worker::search(
 
     // For cutNodes without a ttMove, we decrease depth by 2 if depth is high enough.
     if (cutNode && depth >= 8 && !ttMove)
-        depth -= 2;
+        depth -= d1;
 
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
@@ -1147,8 +1152,33 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
+        bool CC = true;
+        if (CC)
+        {
+            std::vector<bool> C = {
+                ss->inCheck,
+                ss->ttHit,
+                priorCapture,
+                capture,
+                givesCheck,
+                move == ttMove,
+                type_of(movedPiece) == PAWN,
+                type_of(movedPiece) == KING,
+                (ss - 1)->currentMove == Move::null(),
+                tte->depth() >= depth,
+            };
 
-				
+            int x = 0;
+            
+            for (int i = 0; i < int(C.size()); ++i)
+                x += C[i] * rrs[i];
+						
+            r += (float) x / 1024;
+        
+        
+        
+        }
+
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
@@ -1225,7 +1255,7 @@ moves_loop:  // When in check, search starts here
                 r += r9;
 
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > r10), !cutNode);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - r11 * (r > r10), !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -1318,8 +1348,8 @@ moves_loop:  // When in check, search starts here
                 else
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
-                    if (depth > 2 && depth < 12 && beta < 13132 && value > -13295)
-                        depth -= 2;
+                    if (depth > d2 && depth < 12 && beta < 13132 && value > -13295)
+                        depth -= d2;
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta

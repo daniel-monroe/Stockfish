@@ -57,6 +57,10 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+
+static int a[5] = {0, 0, 0, 128, 128};
+TUNE(SetRange(0, 256), a);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 127 - 48 * noTtCutNode;
@@ -1326,18 +1330,26 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (depth > 4) + (depth > 5) + (PvNode || cutNode) + ((ss - 1)->statScore < -13241)
-                  + ((ss - 1)->moveCount > 10) + (!ss->inCheck && bestValue <= ss->staticEval - 127)
-                  + (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 74);
+
+      
+        int bonus = 0;
+        bonus += a[std::clamp(depth / 2, 0, 4)];
+        bonus += 64 * (PvNode || cutNode);
+        bonus += 64 * ((ss - 1)->statScore < -13241);
+        bonus += 64 * ((ss - 1)->moveCount > 10);
+        bonus += 64 * (!ss->inCheck && bestValue <= ss->staticEval - 127);
+        bonus += 64 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 74);
+
+				
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus);
+                                      stat_bonus(depth) * bonus / 64);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 2;
+          << stat_bonus(depth) * bonus / 64 / 2;
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus * 2;
+              << stat_bonus(depth) * bonus / 64 * 2;
     }
 
     if (PvNode)

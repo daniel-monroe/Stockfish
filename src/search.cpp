@@ -58,6 +58,9 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int a[4] = {100, 100, 100, 100};
+TUNE(a);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 129 - 43 * noTtCutNode;
@@ -510,7 +513,7 @@ void Search::Worker::clear() {
                     h->fill(-60);
 
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int((19.90 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
+        reductions[i] = int((21.6 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
 
     refreshTable.clear(networks[numaAccessToken]);
 }
@@ -554,7 +557,7 @@ Value Search::Worker::search(
     bool     givesCheck, improving, priorCapture, opponentWorsening;
     bool     capture, moveCountPruning, ttCapture;
     Piece    movedPiece;
-    int      moveCount, captureCount, quietCount;
+    int      moveCount, captureCount, quietCount, pieceCount;
 
     // Step 1. Initialize node
     Worker* thisThread = this;
@@ -926,6 +929,8 @@ moves_loop:  // When in check, search starts here
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
+    pieceCount = pos.count<ALL_PIECES>();
+
     while ((move = mp.next_move(moveCountPruning)) != Move::none())
     {
         assert(move.is_ok());
@@ -965,7 +970,7 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(improving, depth, moveCount, delta, pieceCount);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
@@ -1654,8 +1659,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     return bestValue;
 }
 
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) {
+Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta, int pc) {
     int reductionScale = reductions[d] * reductions[mn];
+    reductionScale     = reductionScale * a[(pc-1) / 8] / 100;
     return (reductionScale + 1222 - delta * 733 / rootDelta) / 1024 + (!i && reductionScale > 1231);
 }
 

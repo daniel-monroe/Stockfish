@@ -58,6 +58,20 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int x1 = 55, x2 = 25, x3 = 75, x4 = 94;
+
+TUNE(x1, x2, x3, x4);
+
+inline int clamped_lerp(int x, int lo, int hi, int max) {
+    /*
+  Does a "clamped linear interpolation". The output is 0 if x < lo and max if x > hi.
+	The output is a linear interpolation between 0 and max if lo <= x <= hi.
+	*/
+    lo = std::min(lo, hi - 1);
+    return std::clamp((x - lo) * max / (hi - lo), 0, max);
+}
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 129 - 43 * noTtCutNode;
@@ -1022,8 +1036,9 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3670;
 
-                Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 51 ? 149 : 55) + 141 * lmrDepth;
+                
+                Value futilityValue = ss->staticEval + 141 * lmrDepth + x1
+                                    + clamped_lerp(ss->staticEval - bestValue, x2, x3, x4);
 
                 // Futility pruning: parent node (~13 Elo)
                 if (!ss->inCheck && lmrDepth < 11 && futilityValue <= alpha)

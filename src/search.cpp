@@ -73,8 +73,8 @@ constexpr int futility_move_count(bool improving, Depth depth) {
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation does not hit the tablebase range
 Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
-    auto cv = w.correctionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
-    v += cv * std::abs(cv) / 4990;
+    auto cv = w.correctionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)] / CORRECTION_HISTORY_QUANTIZER;
+    v += cv * 20 / 100;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
@@ -502,6 +502,7 @@ void Search::Worker::clear() {
     captureHistory.fill(0);
     pawnHistory.fill(-1193);
     correctionHistory.fill(0);
+    correctionHistoryWeight.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
@@ -805,13 +806,13 @@ Value Search::Worker::search(
         {
             if (thisThread->nmpMinPly || depth < 16)
             {
-                if (nullValue >= ss->staticEval)
-                {
-                    auto bonus = std::min(int(nullValue - ss->staticEval) * depth / 32,
-                                          CORRECTION_HISTORY_LIMIT / 16);
-                    thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)]
-                      << bonus;
-                }
+                //if (nullValue >= ss->staticEval)
+                //{
+                //    auto bonus = std::min(int(nullValue - ss->staticEval) * co/ 32,
+                //                          CORRECTION_HISTORY_LIMIT / 16);
+                //    thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)]
+                //      << bonus;
+                //}
                 return nullValue;
             }
 
@@ -1381,10 +1382,21 @@ moves_loop:  // When in check, search starts here
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
         && !(bestValue >= beta && bestValue <= ss->staticEval)
         && !(!bestMove && bestValue >= ss->staticEval))
-    {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
-                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+    {   
+
+
+        
+        int error = int(bestValue - ss->staticEval) * CORRECTION_HISTORY_QUANTIZER;
+        int weight = thisThread->correctionHistoryWeight[us][pawn_structure_index<Correction>(pos)];
+        int this_weight = std::clamp(depth, 1, 16);
+        int new_weight  = weight + this_weight;
+        int scale_update = -(thisThread
+                       ->correctionHistory[us][pawn_structure_index<Correction>(pos)] * this_weight) / new_weight;
+        int add_update = (error * this_weight) / new_weight;
+
+        thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)]
+          << scale_update + add_update;
+        thisThread->correctionHistoryWeight[us][pawn_structure_index<Correction>(pos)] << this_weight;
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);

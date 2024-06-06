@@ -1386,7 +1386,7 @@ moves_loop:  // When in check, search starts here
 
 
         
-        int error = int(bestValue - ss->staticEval) * CORRECTION_HISTORY_QUANTIZER;
+        int error = int(bestValue - unadjustedStaticEval) * CORRECTION_HISTORY_QUANTIZER;
         int weight = thisThread->correctionHistoryWeight[us][pawn_structure_index<Correction>(pos)];
         int this_weight = std::clamp(depth, 1, 16);
         int new_weight  = weight + this_weight;

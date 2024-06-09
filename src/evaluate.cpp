@@ -36,6 +36,9 @@
 #include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
+  
+  static int diff = 0;
+  TUNE(SetRange(-20, 20), diff);
 
 // Returns a static, purely materialistic evaluation of the position from
 // the point of view of the given color. It can be divided by PawnValue to get
@@ -66,14 +69,14 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     auto [psqt, positional] = smallNet ? networks.small.evaluate(pos, &caches.small)
                                        : networks.big.evaluate(pos, &caches.big);
 
-    Value nnue           = psqt + positional;
+    Value nnue           = (psqt * (128 - diff) + positional * (128 +diff)) / 128;
     int   nnueComplexity = std::abs(psqt - positional);
 
     // Re-evaluate the position when higher eval accuracy is worth the time spent
     if (smallNet && (nnue * simpleEval < 0 || std::abs(nnue) < 227))
     {
         std::tie(psqt, positional) = networks.big.evaluate(pos, &caches.big);
-        nnue                       = psqt + positional;
+        nnue                       = (psqt * (128 - diff) + positional * (128 + diff)) / 128;
         nnueComplexity             = std::abs(psqt - positional);
         smallNet                   = false;
     }

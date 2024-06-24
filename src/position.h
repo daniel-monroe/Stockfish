@@ -286,11 +286,26 @@ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
 
-inline Key Position::key() const { return adjust_key50<false>(st->key); }
+inline Key Position::key() const { return adjust_key50<false>(st->key); }         
 
 template<bool AfterMove>
 inline Key Position::adjust_key50(Key k) const {
-    return st->rule50 < 14 - AfterMove ? k : k ^ make_key((st->rule50 - (14 - AfterMove)) / 8);
+
+    int r50 = st->rule50 + AfterMove;
+    int bucket;
+    if (r50 < 64)
+      bucket = r50 / 32;
+    else if (r50 < 80)
+      bucket = 2;
+    else if (r50 < 88)
+      bucket = 3;
+    else if (r50 < 96)
+      bucket = 4;
+    else
+      bucket = 5;
+    
+
+    return bucket == 0 ? k : k ^ make_key(bucket);
 }
 
 inline Key Position::pawn_key() const { return st->pawnKey; }

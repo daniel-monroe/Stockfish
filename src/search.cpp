@@ -53,10 +53,17 @@ namespace TB = Tablebases;
 using Eval::evaluate;
 using namespace Search;
 
+
+
 namespace {
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
+
+static int futilityBoostByValueLoss[8] = {54, 54, 54, 138, 138, 138, 138, 138};
+
+TUNE(SetRange(0, 200), futilityBoostByValueLoss);
+
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
@@ -1019,8 +1026,11 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3678;
 
-                Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 51 ? 138 : 54) + 140 * lmrDepth;
+                int idx = (ss->staticEval >= bestValue)
+                        * (1 + std::clamp((ss->staticEval - bestValue) / 25, 0, 6));
+
+
+                Value futilityValue = ss->staticEval + futilityBoostByValueLoss[idx] + 140 * lmrDepth;
 
                 // Futility pruning: parent node (~13 Elo)
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)

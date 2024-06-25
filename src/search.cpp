@@ -59,9 +59,17 @@ static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
 // Futility margin
-Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
-    Value futilityMult       = 109 - 40 * noTtCutNode;
-    Value improvingDeduction = 59 * improving * futilityMult / 32;
+Value futility_margin(Depth d, bool noTtCutNode, int evalDiff, bool oppWorsening) {
+    Value futilityMult = 109 - 40 * noTtCutNode;
+    int   idm;
+    if (evalDiff > 150)
+      idm = 90;
+    else if (evalDiff > 0)
+      idm = 59;
+    else
+      idm = 0;
+
+    Value improvingDeduction = idm * futilityMult / 32;
     Value worseningDeduction = 328 * oppWorsening * futilityMult / 1024;
 
     return futilityMult * d - improvingDeduction - worseningDeduction;
@@ -555,7 +563,7 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
+    Value bestValue, value, eval, maxValue, probCutBeta, singularValue, evalDiff;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, moveCountPruning, ttCapture;
     Piece movedPiece;
@@ -762,9 +770,16 @@ Value Search::Worker::search(
     // check at our previous move we look at static evaluation at move prior to it
     // and if we were in check at move prior to it flag is set to true) and is
     // false otherwise. The improving flag is used in various pruning heuristics.
-    improving = (ss - 2)->staticEval != VALUE_NONE
-                ? ss->staticEval > (ss - 2)->staticEval
-                : (ss - 4)->staticEval != VALUE_NONE && ss->staticEval > (ss - 4)->staticEval;
+
+    if ((ss - 2)->staticEval != VALUE_NONE)
+        evalDiff = ss->staticEval - (ss - 2)->staticEval;
+    else if ((ss - 4)->staticEval != VALUE_NONE)
+        evalDiff = ss->staticEval - (ss - 4)->staticEval;
+    else
+        evalDiff = -1;
+
+
+    improving = evalDiff > 0;
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
@@ -781,7 +796,7 @@ Value Search::Worker::search(
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
+        && eval - futility_margin(depth, cutNode && !ss->ttHit, evalDiff, opponentWorsening)
                - (ss - 1)->statScore / 263
              >= beta
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttData.move || ttCapture))

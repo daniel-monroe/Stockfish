@@ -1369,7 +1369,7 @@ moves_loop:  // When in check, search starts here
           x2 * cutNode +
           x3 * (ss->ttPv && !PvNode) +
           x4 * (extension == 3) +
-          191 * ((ss - 1)->statScore < -14396) + // ((ss - 1)->statScore < -a) * std::clamp(-(ss - 1)->statScore / b, 0, c);
+          ((ss - 1)->statScore < -a) * std::clamp(-(ss - 1)->statScore / b, 0, c) +// 191 * ((ss - 1)->statScore < -14396)
           119 * ((ss - 1)->moveCount > 8) +
           64 * (!ss->inCheck && bestValue <= ss->staticEval - 107) +
           147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75)

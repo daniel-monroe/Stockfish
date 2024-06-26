@@ -58,6 +58,13 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int x1 = 118, x2 = 118, x3 = 0, x4 = 0;
+int        a = 8000, b = 100, c = 250;
+
+
+TUNE(SetRange(0, 200), x1, x2, x3, x4);
+TUNE(a, b, c);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
@@ -1276,7 +1283,7 @@ moves_loop:  // When in check, search starts here
                 // This information is used for time management. In MultiPV mode,
                 // we must take care to only do this for the first PV line.
                 if (moveCount > 1 && !thisThread->pvIdx)
-                    ++thisThread->bestMoveChanges;
+                    ++thisThread->bestMoveChanges;  
             }
             else
                 // All other moves but the PV, are set to the lowest value: this
@@ -1353,20 +1360,31 @@ moves_loop:  // When in check, search starts here
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
-    {
-        int bonus = (113 * (depth > 5) + 118 * (PvNode || cutNode)
-                     + 191 * ((ss - 1)->statScore < -14396) + 119 * ((ss - 1)->moveCount > 8)
-                     + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
-                     + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75));
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 100);
+    { 
+        
+        // Calculate bonus as a product of the stat bonus at this depth and various factors
+        int bonus = stat_bonus(depth) * (
+          113 * (depth > 5) +
+          x1 * PvNode +
+          x2 * cutNode +
+          x3 * (ss->ttPv && !PvNode) +
+          x4 * (extension == 3) +
+          191 * ((ss - 1)->statScore < -14396) + // ((ss - 1)->statScore < -a) * std::clamp(-(ss - 1)->statScore / b, 0, c);
+          119 * ((ss - 1)->moveCount > 8) +
+          64 * (!ss->inCheck && bestValue <= ss->staticEval - 107) +
+          147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75)
+          
+          ) / 100;
+
+
+        // Apply the bonus to continuation history, main history, and pawn history, with emphasis on pawn history
+        // Because countermoves tend to be situational, we apply a higher bonus to pawn history
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, bonus);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 200;
-
-
+          << bonus / 2;
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << bonus * 4;
     }
 
     if (PvNode)

@@ -1357,7 +1357,7 @@ moves_loop:  // When in check, search starts here
         int bonus = (113 * (depth > 5) + 118 * (PvNode || cutNode) + 119 * ((ss - 1)->moveCount > 8)
                      + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
                      + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75))
-                      + 191 * ((ss - 1)->statScore < -14396) + 50 * (extension == 3);
+                  + 191 * ((ss - 1)->statScore < -14396) + 50 * (ss->ttPv && !PvNode);
 
 
 

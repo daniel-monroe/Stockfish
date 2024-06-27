@@ -1170,10 +1170,14 @@ moves_loop:  // When in check, search starts here
                       + (*contHist[0])[movedPiece][move.to_sq()]
                       + (*contHist[1])[movedPiece][move.to_sq()] - 4747;
 
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            if (thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-                > 4000)
-                ss->statScore += 4000;
+        int t = ss->statScore;
+
+        if (!(capture || givesCheck))
+        {
+
+            t += thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()] + 1193
+               - thisThread->mainHistory[us][move.from_to()];
+        }
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 11125;

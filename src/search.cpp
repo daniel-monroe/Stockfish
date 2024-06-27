@@ -53,10 +53,6 @@ namespace TB = Tablebases;
 using Eval::evaluate;
 using namespace Search;
 
-int x = 59, y = 0;
-
-TUNE(SetRange(-100, 100), y);
-TUNE(x);
 
 namespace {
 
@@ -66,7 +62,7 @@ static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
-    Value improvingDeduction = x * improving * futilityMult / 32;
+    Value improvingDeduction = 59 * improving * futilityMult / 32;
     Value worseningDeduction = 328 * oppWorsening * futilityMult / 1024;
 
     return futilityMult * d - improvingDeduction - worseningDeduction;
@@ -792,7 +788,7 @@ Value Search::Worker::search(
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, evalDiff > y, opponentWorsening)
+        && eval - futility_margin(depth, cutNode && !ss->ttHit, evalDiff > 40, opponentWorsening)
                - (ss - 1)->statScore / 263
              >= beta
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttData.move || ttCapture))

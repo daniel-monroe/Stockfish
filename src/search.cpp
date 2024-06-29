@@ -788,7 +788,7 @@ Value Search::Worker::search(
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, evalDiff > 40, opponentWorsening)
+        && eval - futility_margin(depth, cutNode && !ss->ttHit, evalDiff > -40, opponentWorsening)
                - (ss - 1)->statScore / 263
              >= beta
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttData.move || ttCapture))

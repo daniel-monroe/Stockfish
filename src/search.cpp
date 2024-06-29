@@ -58,6 +58,10 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int x = 118, y = 118;
+
+TUNE(x, y);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
@@ -1354,7 +1358,7 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (113 * (depth > 5) + 118 * (PvNode || cutNode)
+        int bonus = (113 * (depth > 5) + x * PvNode + y * cutNode 
                      + 191 * ((ss - 1)->statScore < -14396) + 119 * ((ss - 1)->moveCount > 8)
                      + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
                      + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75));

@@ -58,17 +58,12 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
-static int x = 122, y = 98;
-TUNE(x, y);
+static int x = 138, y = 74;
 
-int a1 = 8093, a2 = 100, a3 = 244;
+int a1 = 7679, a2 = 96, a3 = 238;
 
-int b = 100;
-int c1 = 40, c2 = 150, c3 = 190;
-
-TUNE(a1, a2, a3);
-TUNE(b);
-TUNE(c1, c2, c3);
+int b  = 117;
+int c1 = 33, c2 = 167, c3 = 188;
 
 
 // Futility margin

@@ -1363,6 +1363,9 @@ moves_loop:  // When in check, search starts here
         if ((ss - 1)->statScore < -8000)
           bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 250);
 
+        bonus += (bestValue <= -(ss - 1)->staticEval - 40)
+               * std::clamp((-(ss - 1)->staticEval - bestValue) * 150 / 100, 0, 190);
+
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]

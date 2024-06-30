@@ -788,7 +788,7 @@ Value Search::Worker::search(
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, evalDiff > -40, opponentWorsening)
+        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 263
              >= beta
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttData.move || ttCapture))
@@ -985,7 +985,7 @@ moves_loop:  // When in check, search starts here
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
             moveCountPruning =
-              moveCount >= futility_move_count(improving, depth)
+              moveCount >= futility_move_count(evalDiff > 40, depth)
                              - (singularBound == BOUND_UPPER && singularValue < alpha - 50);
 
             // Reduced depth of the next LMR search

@@ -58,12 +58,17 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
-static int x = 119, y = 113;
+static int x = 122, y = 98;
 TUNE(x, y);
 
-int a1 = 8000, a2 = 100, a3 = 250;
+int a1 = 8093, a2 = 100, a3 = 244;
+
+int b = 100;
+int c1 = 40, c2 = 150, c3 = 190;
 
 TUNE(a1, a2, a3);
+TUNE(b);
+TUNE(c1, c2, c3);
 
 
 // Futility margin
@@ -1363,14 +1368,16 @@ moves_loop:  // When in check, search starts here
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         int bonus = (113 * (depth > 5) + x * PvNode + y * cutNode + 119 * ((ss - 1)->moveCount > 8)
-                     + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
-                     + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75));
+                     + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107) + b * (extension >= 2));
 
 
         // proportional to "how much damage we have to undo"
 
         if ((ss - 1)->statScore < -a1)
             bonus += std::clamp(-(ss - 1)->statScore / a2, 0, a3);
+
+        bonus += (bestValue <= -(ss - 1)->staticEval - c1 && !(ss - 1)->inCheck)
+               * std::clamp((-(ss - 1)->staticEval - bestValue) * c2 / 100, 0, c3);
 
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,

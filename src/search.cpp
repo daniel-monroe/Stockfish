@@ -555,8 +555,8 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
-    bool  givesCheck, improving, priorCapture, opponentWorsening;
+    Value bestValue, value, eval, maxValue, probCutBeta, singularValue, evalDiff;
+    bool   givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, moveCountPruning, ttCapture;
     Piece movedPiece;
     int   moveCount, captureCount, quietCount;
@@ -710,6 +710,7 @@ Value Search::Worker::search(
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
         improving             = false;
+        evalDiff              = -9999;
         goto moves_loop;
     }
     else if (excludedMove)
@@ -762,9 +763,15 @@ Value Search::Worker::search(
     // check at our previous move we look at static evaluation at move prior to it
     // and if we were in check at move prior to it flag is set to true) and is
     // false otherwise. The improving flag is used in various pruning heuristics.
-    improving = (ss - 2)->staticEval != VALUE_NONE
-                ? ss->staticEval > (ss - 2)->staticEval
-                : (ss - 4)->staticEval != VALUE_NONE && ss->staticEval > (ss - 4)->staticEval;
+    if ((ss - 2)->staticEval != VALUE_NONE)
+        evalDiff = ss->staticEval - (ss - 2)->staticEval;
+    else if ((ss - 4)->staticEval != VALUE_NONE)
+        evalDiff = ss->staticEval - (ss - 4)->staticEval;
+    else
+        evalDiff = -9999;
+
+
+    improving = evalDiff > 0;
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
@@ -970,7 +977,7 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(evalDiff, depth, moveCount, delta);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
@@ -1675,9 +1682,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     return bestValue;
 }
 
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
+Depth Search::Worker::reduction(int evalDiff, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return (reductionScale + 1236 - delta * 746 / rootDelta) / 1024 + (!i && reductionScale > 1326);
+    return (reductionScale + 1236 - delta * 746 / rootDelta) / 1024
+         + (evalDiff <= 0 && reductionScale > (evalDiff < -100 ? 1200 : 1350));
 }
 
 // elapsed() returns the time elapsed since the search started. If the

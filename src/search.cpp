@@ -1363,6 +1363,8 @@ moves_loop:  // When in check, search starts here
         if ((ss - 1)->statScore < -8000)
             bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 250);
 
+        bonus += 150 * (extension >= 2);
+
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);

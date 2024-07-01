@@ -59,7 +59,6 @@ static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
 static int x1 = 1850, x2 = 1090, x3 = 1043, x4 = 1094, x5 = 740, x6 = 648;
-TUNE(x1, x2, x3, x4, x5, x6);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {

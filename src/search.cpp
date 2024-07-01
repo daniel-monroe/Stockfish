@@ -567,6 +567,7 @@ Value Search::Worker::search(
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
+    ss->psIndex        = pawn_structure_index(pos);
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
     maxValue                                              = VALUE_INFINITE;
@@ -1370,8 +1371,7 @@ moves_loop:  // When in check, search starts here
           << stat_bonus(depth) * bonus / 200;
 
 
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+        thisThread->pawnHistory[(ss-1)->psIndex][pos.piece_on(prevSq)][prevSq]
               << stat_bonus(depth) * bonus / 25;
     }
 

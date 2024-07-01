@@ -710,7 +710,7 @@ Value Search::Worker::search(
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
         improving             = false;
-        evalDiff              = -9999;
+        evalDiff              = -1;
         goto moves_loop;
     }
     else if (excludedMove)
@@ -1685,7 +1685,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 Depth Search::Worker::reduction(int evalDiff, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
     return (reductionScale + 1236 - delta * 746 / rootDelta) / 1024
-         + (evalDiff <= 0 && reductionScale > (evalDiff < -100 ? 1200 : 1350));
+         + (evalDiff <= 0 && reductionScale > (1400 + evalDiff) );
 }
 
 // elapsed() returns the time elapsed since the search started. If the

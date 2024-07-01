@@ -58,6 +58,9 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int x1 = 2048, x2 = 1024, x3 = 1024, x4 = 1024, x5 = 1024, x6 = 1024;
+TUNE(x1, x2, x3, x4, x5, x6);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
@@ -970,7 +973,7 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(improving, depth, moveCount, delta, 0);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
@@ -1129,10 +1132,37 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
+
+        // These reduction adjustments have no proven non-linear scaling.
+
+        int rc = 0;
+
+
+        // Increase reduction for cut nodes (~4 Elo)
+        if (cutNode)
+            rc += x1 - x2 * (ttData.depth >= depth && ss->ttPv)
+                + x3 * (!ss->ttPv && move != ttData.move && move != ss->killers[0]);
+
+        // Increase reduction if ttMove is a capture (~3 Elo)
+        if (ttCapture)
+            rc += x4;
+
+        // Increase reduction if next ply has a lot of fail high (~5 Elo)
+        if ((ss + 1)->cutoffCnt > 3)
+            rc += x5 + x6 * !(PvNode || cutNode);
+
+        // For first picked move (ttMove) reduce reduction
+        // but never allow it to go below 0 (~3 Elo)
+
+        r = reduction(improving, depth, moveCount, delta, rc);
+
+
+
         // These reduction adjustments have proven non-linear scaling.
         // They are optimized to time controls of 180 + 1.8 and longer so
         // changing them or adding conditions that are similar
         // requires tests at these types of time controls.
+
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
@@ -1143,25 +1173,12 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             r--;
 
-        // These reduction adjustments have no proven non-linear scaling.
-
-        // Increase reduction for cut nodes (~4 Elo)
-        if (cutNode)
-            r += 2 - (ttData.depth >= depth && ss->ttPv)
-               + (!ss->ttPv && move != ttData.move && move != ss->killers[0]);
-
-        // Increase reduction if ttMove is a capture (~3 Elo)
-        if (ttCapture)
-            r++;
-
-        // Increase reduction if next ply has a lot of fail high (~5 Elo)
-        if ((ss + 1)->cutoffCnt > 3)
-            r += 1 + !(PvNode || cutNode);
-
-        // For first picked move (ttMove) reduce reduction
-        // but never allow it to go below 0 (~3 Elo)
-        else if (move == ttData.move)
+        // this one has no proven scaling
+        if (move == ttData.move && (ss + 1)->cutoffCnt <= 3)
             r = std::max(0, r - 2);
+
+
+
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                       + (*contHist[0])[movedPiece][move.to_sq()]
@@ -1675,9 +1692,22 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     return bestValue;
 }
 
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
+Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta, int rc) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return (reductionScale + 1236 - delta * 746 / rootDelta) / 1024 + (!i && reductionScale > 1326);
+    int x              = (reductionScale + 1236 - delta * 746 / rootDelta);
+    int r              = (!i && reductionScale > 1326);
+
+    // we want to add the result of (x + rc) / 1024, floored
+    if (x > 0)
+    {
+        r += (x + rc) / 1024;
+    }
+    else
+    {
+        r += (x + rc - 1023) / 1024;
+    }
+
+    return r;
 }
 
 // elapsed() returns the time elapsed since the search started. If the

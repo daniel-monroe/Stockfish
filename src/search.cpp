@@ -1365,7 +1365,7 @@ moves_loop:  // When in check, search starts here
         bm += 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75);
         if ((ss - 1)->statScore < -8000)
             bm += std::clamp(-(ss - 1)->statScore / 100, 0, 250);
-        int bonus = stat_bonus(depth) * bonus / 100;
+        int bonus = stat_bonus(depth) * bm / 100;
 
 
         // Apply bonus to continuation, main, and pawn histories

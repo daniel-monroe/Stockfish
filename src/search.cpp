@@ -58,6 +58,10 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+int x1 = 20, x2 = 1410;
+TUNE(x1, x2);
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
@@ -80,6 +84,10 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 
 // History and stats update bonus, based on depth
 int stat_bonus(Depth d) { return std::clamp(186 * d - 285, 20, 1524); }
+
+int pcm_bonus(Depth d) { return std::clamp(186 * d - 285, x1, x2); }
+
+
 
 // History and stats update malus, based on depth
 int stat_malus(Depth d) { return (d < 4 ? 707 * d - 260 : 2073); }
@@ -1365,14 +1373,14 @@ moves_loop:  // When in check, search starts here
 
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 100);
+                                      pcm_bonus(depth) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 200;
+          << pcm_bonus(depth) * bonus / 200;
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << pcm_bonus(depth) * bonus / 25;
     }
 
     if (PvNode)

@@ -1158,6 +1158,9 @@ moves_loop:  // When in check, search starts here
         if ((ss + 1)->cutoffCnt > 3)
             r += 1 + !(PvNode || cutNode);
 
+        else if ((ss + 1)->cutoffCnt > 1)
+            r += !(PvNode || cutNode);
+
         // For first picked move (ttMove) reduce reduction
         // but never allow it to go below 0 (~3 Elo)
         else if (move == ttData.move)

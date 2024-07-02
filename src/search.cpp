@@ -58,6 +58,10 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int x1 = 200, x2 = 100, x3 = 100, x4 = 100, x5 = 100, x6 = 100;
+TUNE(x1, x2, x3, x4, x5, x6);
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
@@ -1145,22 +1149,27 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling.
 
+        int rc = 0;
+
+
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2 - (ttData.depth >= depth && ss->ttPv)
-               + (!ss->ttPv && move != ttData.move && move != ss->killers[0]);
+            rc += x1 - x2 * (ttData.depth >= depth && ss->ttPv)
+               + x3 * (!ss->ttPv && move != ttData.move && move != ss->killers[0]);
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
-            r++;
+            rc += x4;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
-            r += 1 + !(PvNode || cutNode);
+            rc += x5 + x6 * !(PvNode || cutNode);
+
+        r += rc / 100;
 
         // For first picked move (ttMove) reduce reduction
         // but never allow it to go below 0 (~3 Elo)
-        else if (move == ttData.move)
+        if (move == ttData.move && (ss + 1)->cutoffCnt <= 3)
             r = std::max(0, r - 2);
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
@@ -1168,7 +1177,7 @@ moves_loop:  // When in check, search starts here
                       + (*contHist[1])[movedPiece][move.to_sq()] - 4747;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore / 11125;
+        r -= (ss->statScore - 111 * (rc % 100))  / 11125;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1 + rootNode)

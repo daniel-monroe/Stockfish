@@ -905,7 +905,7 @@ Value Search::Worker::search(
 moves_loop:  // When in check, search starts here
 
     // Step 12. A small Probcut idea, when we are in check (~4 Elo)
-    probCutBeta = beta + 388;
+    probCutBeta = beta + 240 + 40 * std::max(depth - ttData.depth, 0);
     if (ss->inCheck && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4
         && ttData.value >= probCutBeta && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)

@@ -58,7 +58,7 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
-static int x1 = 200, x2 = 100, x3 = 100, x4 = 100, x5 = 100, x6 = 100;
+static int x1 = 205, x2 = 101, x3 = 105, x4 = 96, x5 = 110, x6 = 92;
 TUNE(x1, x2, x3, x4, x5, x6);
 
 

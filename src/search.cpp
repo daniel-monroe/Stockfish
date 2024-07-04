@@ -1387,7 +1387,9 @@ moves_loop:  // When in check, search starts here
 
 
         int sb = stat_bonus(depth);
-        sb     = std::clamp(sb, 0, 1200);
+        // reduce pcm bonus if beta and alpha are 1 apart
+        if (beta - alpha == 1)
+            sb = sb / 2;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       sb * bonus / 100);

@@ -1386,15 +1386,18 @@ moves_loop:  // When in check, search starts here
             bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 250);
 
 
+        int sb = stat_bonus(depth);
+        sb     = std::clamp(sb, 0, 1200);
+
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 100);
+                                      sb * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 200;
+          << sb * bonus / 200;
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << sb * bonus / 25;
     }
 
     if (PvNode)

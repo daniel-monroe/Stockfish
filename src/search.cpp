@@ -1002,7 +1002,17 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+
+        int reductionMoveCount = moveCount;
+        if (extension == -3)
+        {
+            reductionMoveCount -= 1;
+            reductionMoveCount = std::max(reductionMoveCount, 1);
+        }
+
+        assert(reductionMoveCount >= 1);
+
+        Depth r = reduction(improving, depth, reductionMoveCount, delta);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.

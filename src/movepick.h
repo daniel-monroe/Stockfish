@@ -176,6 +176,8 @@ class MovePicker {
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
 
+    void SetExtensionBlocker(Move m) { extensionBlocker = m; }
+
    private:
     template<PickType T, typename Pred>
     Move select(Pred);
@@ -190,6 +192,7 @@ class MovePicker {
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
     Move                         ttMove;
+    Move                         extensionBlocker = Move::none();
     ExtMove refutations[3], *cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int     stage;
     int     threshold;

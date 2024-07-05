@@ -68,6 +68,9 @@ namespace {
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
+static int x1 = 100, x2 = 29;
+TUNE(x1, x2);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 40 * noTtCutNode;
@@ -1388,7 +1391,7 @@ moves_loop:  // When in check, search starts here
     {
         int bonus = (113 * (depth > 5) + 130 * PvNode + 76 * cutNode + 119 * ((ss - 1)->moveCount > 8)
                      + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
-                     + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75)) + 100 * (extension >= 2);
+                     + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75)) + x1 * (extension >= 2);
 
         // Proportional to "how much damage we have to undo"
         if ((ss - 1)->statScore < -7850)
@@ -1402,7 +1405,7 @@ moves_loop:  // When in check, search starts here
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << stat_bonus(depth) * bonus / x2;
     }
 
     if (PvNode)

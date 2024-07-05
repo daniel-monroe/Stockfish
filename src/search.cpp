@@ -1170,7 +1170,7 @@ moves_loop:  // When in check, search starts here
         if (ss->ttPv)
             r -= 1 + (ttData.value > alpha) + (ttData.depth >= depth)
                - (PvNode && ttData.value < alpha && ttData.depth >= depth);
-
+          
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
             r--;
@@ -1189,6 +1189,8 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
             r += 1 + !(PvNode || cutNode);
+        else if ((ss + 1)->cutoffCnt > 1) 
+          r += !(PvNode || cutNode);
 
         // For first picked move (ttMove) reduce reduction
         // but never allow it to go below 0 (~3 Elo)

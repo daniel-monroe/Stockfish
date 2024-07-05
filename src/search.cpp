@@ -1137,7 +1137,7 @@ moves_loop:  // When in check, search starts here
                     extension = -2;
 
                 if (value >= singularBeta)
-                    mp.SetExtensionBlocker(ss->currentMove);
+                    mp.SetExtensionBlocker(ss->currentMove.is_ok() ? ss->currentMove : Move::none());
             }
 
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)

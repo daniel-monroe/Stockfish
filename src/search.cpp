@@ -1006,7 +1006,7 @@ moves_loop:  // When in check, search starts here
         int reductionMoveCount = moveCount;
         if (extension == -3)
         {
-            reductionMoveCount -= 1;
+            reductionMoveCount = moveCount * 2 / 3;
             reductionMoveCount = std::max(reductionMoveCount, 1);
         }
 

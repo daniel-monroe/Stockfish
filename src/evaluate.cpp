@@ -87,7 +87,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
 
     // Quantum
-    v = (v / 16) * 16 - 1 + (pos.key() & 0x2);
+    v = (v / 16) * 16;
 
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 212;

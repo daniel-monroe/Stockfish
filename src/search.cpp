@@ -1396,7 +1396,7 @@ moves_loop:  // When in check, search starts here
         if ((ss - 1)->statScore < -7850)
         {
             ph_bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 224);
-            bonus += std::clamp(-(ss - 1)->statScore / 70, 0, 300);
+            bonus += 2 * std::clamp(-(ss - 1)->statScore / 100, 0, 224);
         }
 
 

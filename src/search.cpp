@@ -1390,9 +1390,15 @@ moves_loop:  // When in check, search starts here
                      + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
                      + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75)) + 100 * (extension >= 2);
 
-        // Proportional to "how much damage we have to undo"
+        int ph_bonus = bonus;
+
+        // Proportional to "how much damage we have to undo", more for main and cont hists
         if ((ss - 1)->statScore < -7850)
-            bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 224);
+        {
+            ph_bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 224);
+            bonus += std::clamp(-(ss - 1)->statScore / 70, 0, 300);
+        }
+
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
@@ -1402,7 +1408,7 @@ moves_loop:  // When in check, search starts here
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << stat_bonus(depth) * ph_bonus / 25;
     }
 
     if (PvNode)
@@ -1799,7 +1805,7 @@ void update_all_stats(const Position& pos,
                       Move*           capturesSearched,
                       int             captureCount,
                       Depth           depth) {
-
+  
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;

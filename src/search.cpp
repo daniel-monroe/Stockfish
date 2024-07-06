@@ -1390,9 +1390,13 @@ moves_loop:  // When in check, search starts here
                      + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 107)
                      + 147 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 75)) + 100 * (extension >= 2);
 
+
+        int ph_bonus = bonus;
         // Proportional to "how much damage we have to undo"
         if ((ss - 1)->statScore < -7850)
-            bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 224);
+            ph_bonus += std::clamp(-(ss - 1)->statScore / 100, 0, 224);
+            bonus += std::clamp(-(ss - 1)->statScore / 70, 0, 300);
+
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);

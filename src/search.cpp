@@ -65,10 +65,8 @@ using namespace Search;
 
 namespace {
 
-static int x1 = 0, x2 = 0, x3 = 0, x4 = 0, x5 = 0, x6 = 0;
+static int x1 = -40, x2 = 0, x3 = 0, x4 = -40, x5 = 0, x6 = 0;
 static int c1 = 100, c2 = 100;
-TUNE(SetRange(-100, 100), x1, x2, x3, x4, x5, x6);
-TUNE(c1, c2);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {

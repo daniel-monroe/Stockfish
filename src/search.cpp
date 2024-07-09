@@ -65,7 +65,7 @@ using namespace Search;
 
 namespace {
 
-static int x1 = -100, x2 = 0, x3 = 0, x4 = -100, x5 = 0, x6 = 0;
+static int x1 = 0, x2 = 0, x3 = 30, x4 = 0, x5 = 0, x6 = 0;
 static int c1 = 100, c2 = 100;
 
 // Futility margin

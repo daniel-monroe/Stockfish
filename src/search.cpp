@@ -132,12 +132,17 @@ void update_all_stats(const Position& pos,
                       Stack*          ss,
                       Search::Worker& workerThread,
                       Move            bestMove,
+                      Value           alpha,
+                      Value           beta,
                       Square          prevSq,
                       Move*           quietsSearched,
                       int             quietCount,
                       Move*           capturesSearched,
                       int             captureCount,
-                      Depth           depth);
+                      Depth           depth,
+                      bool            cutNode);
+
+
 
 }  // namespace
 
@@ -1358,8 +1363,8 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, quietCount,
-                         capturesSearched, captureCount, depth);
+        update_all_stats(pos, ss, *this, bestMove, alpha, beta, prevSq, quietsSearched,
+                         quietCount, capturesSearched, captureCount, depth, cutNode);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1768,19 +1773,24 @@ void update_all_stats(const Position& pos,
                       Stack*          ss,
                       Search::Worker& workerThread,
                       Move            bestMove,
+                      Value           alpha,
+                      Value           beta,
                       Square          prevSq,
                       Move*           quietsSearched,
                       int             quietCount,
                       Move*           capturesSearched,
                       int             captureCount,
-                      Depth           depth) {
+                      Depth           depth,
+                      bool            cutNode) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int quietMoveBonus = stat_bonus(depth);
-    int quietMoveMalus = stat_malus(depth);
+    int delta = beta - alpha;
+
+    int quietMoveBonus = stat_bonus(depth) * (100 - 40 * cutNode + 50 * (delta == 1)) / 100;
+    int quietMoveMalus = stat_malus(depth) * (100 - 40 * cutNode) / 100;
 
     if (!pos.capture_stage(bestMove))
     {

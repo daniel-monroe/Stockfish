@@ -1372,6 +1372,11 @@ moves_loop:  // When in check, search starts here
 
         bonus = std::max(bonus, 0);
 
+        if (beta - alpha == 1)
+        {
+            bonus = bonus * 12 / 10;
+        }
+
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]

@@ -1374,7 +1374,7 @@ moves_loop:  // When in check, search starts here
 
         if (beta - alpha == 1)
         {
-            bonus = bonus * 12 / 10;
+            bonus = bonus * 14 / 10;
         }
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,

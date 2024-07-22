@@ -1371,7 +1371,6 @@ moves_loop:  // When in check, search starts here
         bonus += std::clamp(-(ss - 1)->statScore / 100, -94, 300);
 
         bonus = std::max(bonus, 0);
-        
         if (cutNode)
             bonus = bonus * 8 / 10;
 

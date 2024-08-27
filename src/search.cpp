@@ -1137,7 +1137,7 @@ moves_loop:  // When in check, search starts here
             r += 2 - (ttData.depth >= depth && ss->ttPv);
 
         // Increase reduction if ttMove is a capture (~3 Elo)
-        if (ttCapture)
+        if (ttCapture && !capture)
             r++;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)

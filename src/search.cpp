@@ -1347,7 +1347,9 @@ moves_loop:  // When in check, search starts here
 
         // Proportional to "how much damage we have to undo"
         bonus += std::clamp(-(ss - 1)->statScore / 100, -94, 304);
-        bonus -= ((ss - 1)->moveCount == 1) * 150;
+        if ((ss - 1)->moveCount == 1) {
+            bonus = 0;
+        }
 
         bonus = std::max(bonus, 0);
 

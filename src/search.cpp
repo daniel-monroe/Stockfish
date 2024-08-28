@@ -107,7 +107,10 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
-                      Depth                depth);
+                      Depth                depth,
+                      int                  bestMoveCount,
+                      bool                 failHigh,
+                      bool                 allNode);
 
 }  // namespace
 
@@ -537,6 +540,7 @@ Value Search::Worker::search(
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
+    int   bestMoveCount;
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
@@ -554,6 +558,7 @@ Value Search::Worker::search(
     ss->moveCount      = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
+    bestMoveCount      = 0;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -1286,6 +1291,9 @@ moves_loop:  // When in check, search starts here
             if (value + inc > alpha)
             {
                 bestMove = move;
+                bestMoveCount = moveCount;
+
+
 
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
@@ -1326,6 +1334,8 @@ moves_loop:  // When in check, search starts here
 
     assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
 
+    bool failHigh = bestValue >= beta;
+
     // Adjust best value for fail high cases at non-pv nodes
     if (!PvNode && bestValue >= beta && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY && std::abs(alpha) < VALUE_TB_WIN_IN_MAX_PLY)
@@ -1337,7 +1347,7 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
+        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth, bestMoveCount, failHigh, allNode);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1430,7 +1440,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Move  move, bestMove;
     Value bestValue, value, futilityBase;
     bool  pvHit, givesCheck, capture;
-    int   moveCount;
+    int   moveCount, bestMoveCount;
     Color us = pos.side_to_move();
 
     // Step 1. Initialize node
@@ -1444,6 +1454,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     bestMove           = Move::none();
     ss->inCheck        = pos.checkers();
     moveCount          = 0;
+    bestMoveCount      = 0;
+
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
@@ -1623,6 +1635,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             if (value > alpha)
             {
                 bestMove = move;
+                bestMoveCount = moveCount;
 
                 if (PvNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
@@ -1748,7 +1761,11 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
-                      Depth                depth) {
+                      Depth                depth,
+                      int                  bestMoveCount,
+                      bool                 failHigh,
+                      bool                 allNode
+    ) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
@@ -1756,6 +1773,11 @@ void update_all_stats(const Position&      pos,
 
     int quietMoveBonus = stat_bonus(depth);
     int quietMoveMalus = stat_malus(depth);
+
+    if (allNode && failHigh)
+    {
+        quietMoveBonus = quietMoveBonus * 3 / 2;
+    }
 
     if (!pos.capture_stage(bestMove))
     {

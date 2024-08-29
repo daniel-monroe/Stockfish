@@ -139,6 +139,12 @@ void MovePicker::score() {
     }
 
     for (auto& m : *this)
+    {
+
+        Piece     pc   = pos.moved_piece(m);
+        PieceType pt   = type_of(pc);
+        Square    from = m.from_sq();
+        Square    to   = m.to_sq();
         if constexpr (Type == CAPTURES)
             m.value =
               7 * int(PieceValue[pos.piece_on(m.to_sq())])
@@ -146,10 +152,7 @@ void MovePicker::score() {
 
         else if constexpr (Type == QUIETS)
         {
-            Piece     pc   = pos.moved_piece(m);
-            PieceType pt   = type_of(pc);
-            Square    from = m.from_sq();
-            Square    to   = m.to_sq();
+
 
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
@@ -160,8 +163,6 @@ void MovePicker::score() {
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
 
-            // bonus for checks
-            m.value += bool(pos.check_squares(pt) & to) * 16384;
 
             // bonus for escaping from capture
             m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 51700
@@ -186,6 +187,9 @@ void MovePicker::score() {
                         + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()]
                         + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
         }
+        // bonus for checks
+        m.value += bool(pos.check_squares(pt) & to) * 16384;
+    }
 }
 
 // Returns the next move satisfying a predicate function.

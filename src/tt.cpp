@@ -105,7 +105,7 @@ void TTEntry::save(
         assert(d < 256 + DEPTH_ENTRY_OFFSET);
 
         key16     = uint16_t(k);
-        depth8    = uint8_t(d - DEPTH_ENTRY_OFFSET);
+        depth8    = std::max(depth8, uint8_t(d - DEPTH_ENTRY_OFFSET));
         genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
         value16   = int16_t(v);
         eval16    = int16_t(ev);

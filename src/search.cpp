@@ -52,6 +52,9 @@
 
 namespace Stockfish {
 
+int x[4] = {100, 100, 100, 100};
+TUNE(x);
+
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -958,7 +961,7 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(improving, depth, moveCount, delta, bestValue < alpha, PvNode);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
@@ -1658,8 +1661,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     return bestValue;
 }
 
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
-    int reductionScale = reductions[d] * reductions[mn];
+Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta, bool stillLow, bool pv) const {
+    int reductionScale = reductions[d] * reductions[mn] * x[2 * stillLow + pv] / 100;
     return (reductionScale + 1274 - delta * 746 / rootDelta) / 1024 + (!i && reductionScale > 1293);
 }
 

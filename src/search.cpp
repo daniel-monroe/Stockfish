@@ -541,6 +541,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
+    bool  foundImprovement = false;
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -1299,8 +1300,12 @@ moves_loop:  // When in check, search starts here
                 else
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
-                    if (depth > 2 && depth < 14 && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                    if (depth > 2 && depth < 14 && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY
+                        && !foundImprovement)
+                    {
                         depth -= 2;
+                        foundImprovement = true;
+                    }
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta

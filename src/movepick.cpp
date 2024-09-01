@@ -27,8 +27,8 @@
 
 namespace Stockfish {
 
-static int x1 = 100, x2 = 200, x3 = 200, x4 = 100, x5 = 33, x6 = 100, x7 = 100;
-TUNE(x1, x2, x3, x4, x5, x6, x7);
+static int x1 = 136, x2 = 173, x3 = 167, x4 = 84, x5 = 53, x6 = 107, x7 = 110;
+// TUNE(x1, x2, x3, x4, x5, x6, x7);
 
 
 namespace {

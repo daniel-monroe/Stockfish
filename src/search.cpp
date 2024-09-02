@@ -537,10 +537,13 @@ Value Search::Worker::search(
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
-    Depth extension, newDepth;
+    Depth extension,   newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
+    int   legalMoves;
+    bool  oneLegalMove;
+
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -686,6 +689,21 @@ Value Search::Worker::search(
         }
     }
 
+
+    
+    MovePicker dummy_mp(pos, ttData.move, -999999,
+                        &thisThread->captureHistory);
+    legalMoves = 0;
+    while ((move = dummy_mp.next_move()) != Move::none())
+    {
+        if (!pos.legal(move))
+            continue;
+        ++legalMoves;
+        if (legalMoves == 2)
+            break;
+    }
+    oneLegalMove = legalMoves == 1;
+
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
@@ -747,6 +765,8 @@ Value Search::Worker::search(
     improving = ss->staticEval > (ss - 2)->staticEval;
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
+
+
 
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the
@@ -1093,10 +1113,10 @@ moves_loop:  // When in check, search starts here
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
-            else if (PvNode && move.to_sq() == prevSq
+            else if ((oneLegalMove && !rootNode) || (PvNode && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
-                          > 3994)
+                          > 3994))  
                 extension = 1;
         }
 

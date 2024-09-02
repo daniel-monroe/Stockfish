@@ -691,18 +691,7 @@ Value Search::Worker::search(
 
 
     
-    MovePicker dummy_mp(pos, ttData.move, -999999,
-                        &thisThread->captureHistory);
-    legalMoves = 0;
-    while ((move = dummy_mp.next_move()) != Move::none())
-    {
-        if (!pos.legal(move))
-            continue;
-        ++legalMoves;
-        if (legalMoves == 2)
-            break;
-    }
-    oneLegalMove = legalMoves == 1;
+
 
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
@@ -928,6 +917,19 @@ moves_loop:  // When in check, search starts here
                                         nullptr,
                                         (ss - 6)->continuationHistory};
 
+
+    MovePicker dummy_mp(pos, ttData.move, depth, &thisThread->mainHistory,
+                        &thisThread->captureHistory, contHist, &thisThread->pawnHistory);
+    legalMoves = 0;
+    while ((move = dummy_mp.next_move()) != Move::none())
+    {
+        if (!pos.legal(move))
+            continue;
+        ++legalMoves;
+        if (legalMoves == 2)
+            break;
+    }
+    oneLegalMove = legalMoves == 1;
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
                   contHist, &thisThread->pawnHistory);

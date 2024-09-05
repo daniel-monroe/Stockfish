@@ -221,8 +221,7 @@ void Search::Worker::iterative_deepening() {
     Value  bestValue     = -VALUE_INFINITE;
     Color  us            = rootPos.side_to_move();
     double timeReduction = 1, totBestMoveChanges = 0;
-    int    delta, iterIdx                        = 0;
-    int    lastFailedCnt = 1;
+    int    delta, iterIdx                        = 0;;
 
     // Allocate stack with extra size to allow access from (ss - 7) to (ss + 2):
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
@@ -297,7 +296,7 @@ void Search::Worker::iterative_deepening() {
 
             // Reset aspiration window starting size
             Value avg = rootMoves[pvIdx].averageScore;
-            delta     = (lastFailedCnt == 0 ? 3 : 5) + avg * avg / 13424;
+            delta     = 5 + avg * avg / 13424;
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
@@ -362,12 +361,11 @@ void Search::Worker::iterative_deepening() {
                 else
                     break;
 
-                delta += delta / 3;
+                if (failedCnt % 2 == 0)
+                  delta += delta / 4;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
-
-            lastFailedCnt = failedCnt;
 
             // Sort the PV lines searched so far and update the GUI
             std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);

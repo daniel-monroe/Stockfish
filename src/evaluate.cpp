@@ -37,6 +37,11 @@
 
 namespace Stockfish {
 
+const int J     = 40;
+int       x[10] = {0, J, J * 2, J * 3, J * 4, J * 5, J * 6, J * 7, J * 8, J * 9};
+
+TUNE(x, SetRange(0, 800));
+
 // Returns a static, purely materialistic evaluation of the position from
 // the point of view of the given color. It can be divided by PawnValue to get
 // an approximation of the material advantage on the board in terms of pawns.
@@ -82,6 +87,16 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     int material = (smallNet ? 553 : 532) * pos.count<PAWN>() + pos.non_pawn_material();
     v = (nnue * (73921 + material) + optimism * (8112 + material)) / (smallNet ? 68104 : 74715);
+
+    // apply 
+    if (std::abs(v) < J * 9)
+    {
+        int   idx   = std::abs(v) / J;
+        int   extra = std::abs(v) - J * idx;
+        Value new_v = (extra * x[idx + 1] + (J - extra) * x[idx]) / J;
+        v           = new_v * (v > 0 ? 1 : -1);
+    }
+
 
     // Evaluation grain (to get more alpha-beta cuts) with randomization (for robustness)
     v = (v / 16) * 16 - 1 + (pos.key() & 0x2);

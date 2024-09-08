@@ -38,7 +38,7 @@
 namespace Stockfish {
 
 const int J     = 40;
-int       x[10] = {0, J, J * 2, J * 3, J * 4, J * 5, J * 6, J * 7, J * 8, J * 9};
+int       x[10] = {0, 42, 73, 113, J * 4, J * 5, J * 6, J * 7, J * 8, J * 9};
 
 TUNE(x, SetRange(0, 800));
 

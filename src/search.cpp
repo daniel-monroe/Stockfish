@@ -1151,7 +1151,9 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
-            r++;
+            r += 1 + (depth < 8);
+
+
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
@@ -1823,7 +1825,10 @@ void update_quiet_histories(
     Color us = pos.side_to_move();
     workerThread.mainHistory[us][move.from_to()] << bonus;
     if (ss->ply < 4)
-        workerThread.lowPlyHistory[us][ss->ply][move.from_to()] << bonus;
+    {
+        int lpIndex = lp_index(pos);
+        workerThread.lowPlyHistory[ss->ply][lpIndex][move.from_to()] << bonus;
+    }
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 

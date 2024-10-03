@@ -181,7 +181,7 @@ void MovePicker::score() {
 
             if (ply < 4)
                 m.value +=
-                  8 * (*lowPlyHistory)[pos.side_to_move()][ply][m.from_to()] / (1 + 2 * ply);
+                  8 * (*lowPlyHistory)[ply][lp_index(pos)][m.from_to()] / (1 + 2 * ply);
         }
 
         else  // Type == EVASIONS

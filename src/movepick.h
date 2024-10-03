@@ -37,6 +37,7 @@ namespace Stockfish {
 constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE  = 32768;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
+constexpr int LP_HISTORY_SIZE          = 16;
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
               "PAWN_HISTORY_SIZE has to be a power of 2");
@@ -65,6 +66,9 @@ inline int major_piece_index(const Position& pos) {
 inline int minor_piece_index(const Position& pos) {
     return pos.minor_piece_key() & (CORRECTION_HISTORY_SIZE - 1);
 }
+
+inline int lp_index(const Position& pos) { return pos.key() & (LP_HISTORY_SIZE - 1); }
+
 
 template<Color c>
 inline int non_pawn_index(const Position& pos) {
@@ -135,7 +139,7 @@ enum StatsType {
 // see https://www.chessprogramming.org/Butterfly_Boards (~11 elo)
 using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
 
-using LowPlyHistory = Stats<int16_t, 7183, COLOR_NB, 4, int(SQUARE_NB) * int(SQUARE_NB)>;
+using LowPlyHistory = Stats<int16_t, 7183, 4, LP_HISTORY_SIZE, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
 using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;

@@ -83,7 +83,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
     const auto  pcv   = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
-    const auto  mcv   = w.materialCorrectionHistory[us][material_index(pos)];
+    const auto  mcv   = w.materialCorrectionHistory[us][material_index<Correction>(pos)];
     const auto  macv  = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
@@ -765,8 +765,11 @@ Value Search::Worker::search(
         int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1641, 1423) + 760;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+            thisThread->pawnHistory[0][pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus / 2;
+
+        thisThread->pawnHistory[1][material_index(pos)][pos.piece_on(prevSq)][prevSq]
+          << bonus / 2;
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -1026,7 +1029,7 @@ moves_loop:  // When in check, search starts here
                 int history =
                   (*contHist[0])[movedPiece][move.to_sq()]
                   + (*contHist[1])[movedPiece][move.to_sq()]
-                  + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
+                  + thisThread->pawnHistory[0][pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
                 // Continuation history based pruning (~2 Elo)
                 if (history < -4071 * depth)
@@ -1392,8 +1395,11 @@ moves_loop:  // When in check, search starts here
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+            thisThread->pawnHistory[0][pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << stat_bonus(depth) * bonus / 25;
+
+        thisThread->pawnHistory[1][material_index(pos)][pos.piece_on(prevSq)][prevSq]
+          << stat_bonus(depth) * bonus / 50;
     }
 
     // Bonus when search fails low and there is a TT move
@@ -1428,7 +1434,8 @@ moves_loop:  // When in check, search starts here
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
           << bonus * 101 / 128;
-        thisThread->materialCorrectionHistory[us][material_index(pos)] << bonus * 99 / 128;
+        thisThread->materialCorrectionHistory[us][material_index<Correction>(pos)]
+          << bonus * 99 / 128;
         thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 157 / 128;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 153 / 128;
         thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
@@ -1627,7 +1634,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             if (!capture
                 && (*contHist[0])[pos.moved_piece(move)][move.to_sq()]
                        + (*contHist[1])[pos.moved_piece(move)][move.to_sq()]
-                       + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)]
+                       + thisThread->pawnHistory[0][pawn_structure_index(pos)][pos.moved_piece(move)]
                                                 [move.to_sq()]
                      <= 5036)
                 continue;
@@ -1857,7 +1864,10 @@ void update_quiet_histories(
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 
     int pIndex = pawn_structure_index(pos);
-    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
+    workerThread.pawnHistory[0][pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
+
+    int mIndex = material_index(pos);
+    workerThread.pawnHistory[1][mIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
 }
 
 }

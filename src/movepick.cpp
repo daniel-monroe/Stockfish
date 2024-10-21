@@ -125,11 +125,13 @@ void MovePicker::score() {
 
     static_assert(Type == CAPTURES || Type == QUIETS || Type == EVASIONS, "Wrong type");
 
+    Color us = pos.side_to_move();
+
+
     [[maybe_unused]] Bitboard threatenedByPawn, threatenedByMinor, threatenedByRook,
       threatenedPieces;
     if constexpr (Type == QUIETS)
     {
-        Color us = pos.side_to_move();
 
         threatenedByPawn = pos.attacks_by<PAWN>(~us);
         threatenedByMinor =
@@ -157,7 +159,8 @@ void MovePicker::score() {
 
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += 2 * (*pawnHistory)[0][pawn_structure_index(pos)][pc][to];
+            m.value += (*pawnHistory)[1][material_index(pos)][pc][to];
             m.value += 2 * (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
             m.value += (*continuationHistory[2])[pc][to] / 3;
@@ -191,7 +194,7 @@ void MovePicker::score() {
             else
                 m.value = (*mainHistory)[pos.side_to_move()][m.from_to()]
                         + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()]
-                        + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
+                        + (*pawnHistory)[0][pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
         }
 }
 

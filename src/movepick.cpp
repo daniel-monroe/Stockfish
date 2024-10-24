@@ -161,6 +161,10 @@ void MovePicker::score() {
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
             m.value += 2 * (*pawnHistory)[0][pawn_structure_index(pos)][pc][to];
             m.value += (*pawnHistory)[1][material_index(pos)][pc][to];
+            m.value += (*pawnHistory)[2][non_pawn_index<WHITE>(pos)][pc][to];
+            m.value += (*pawnHistory)[3][non_pawn_index<BLACK>(pos)][pc][to];
+
+
             m.value += 2 * (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
             m.value += (*continuationHistory[2])[pc][to] / 3;

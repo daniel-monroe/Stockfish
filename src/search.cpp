@@ -86,8 +86,9 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const auto  mcv   = w.materialCorrectionHistory[us][material_index<Correction>(pos)];
     const auto  macv  = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
-    const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
-    const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
+    const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE, Correction>(pos)];
+    const auto bnpcv =
+      w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK, Correction>(pos)];
     int         cntcv = 1;
 
     if (m.is_ok())
@@ -770,6 +771,11 @@ Value Search::Worker::search(
 
         thisThread->pawnHistory[1][material_index(pos)][pos.piece_on(prevSq)][prevSq]
           << bonus / 2;
+
+        thisThread->pawnHistory[2][non_pawn_index<WHITE>(pos)][pos.piece_on(prevSq)][prevSq] << bonus / 2;
+        thisThread->pawnHistory[3][non_pawn_index<BLACK>(pos)][pos.piece_on(prevSq)][prevSq]
+          << bonus / 2;
+
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -1400,6 +1406,13 @@ moves_loop:  // When in check, search starts here
 
         thisThread->pawnHistory[1][material_index(pos)][pos.piece_on(prevSq)][prevSq]
           << stat_bonus(depth) * bonus / 50;
+
+        thisThread->pawnHistory[2][non_pawn_index<WHITE>(pos)][pos.piece_on(prevSq)][prevSq]
+          << stat_bonus(depth) * bonus / 50;
+
+
+        thisThread->pawnHistory[3][non_pawn_index<BLACK>(pos)][pos.piece_on(prevSq)][prevSq]
+          << stat_bonus(depth) * bonus / 50;
     }
 
     // Bonus when search fails low and there is a TT move
@@ -1438,9 +1451,9 @@ moves_loop:  // When in check, search starts here
           << bonus * 99 / 128;
         thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 157 / 128;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 153 / 128;
-        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
+        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE, Correction>(pos)]
           << bonus * 123 / 128;
-        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
+        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK, Correction>(pos)]
           << bonus * 165 / 128;
 
         if (m.is_ok())
@@ -1868,6 +1881,10 @@ void update_quiet_histories(
 
     int mIndex = material_index(pos);
     workerThread.pawnHistory[1][mIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
+
+    workerThread.pawnHistory[2][non_pawn_index<WHITE>(pos)][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
+    workerThread.pawnHistory[3][non_pawn_index<BLACK>(pos)][pos.moved_piece(move)][move.to_sq()]
+      << bonus / 2;
 }
 
 }

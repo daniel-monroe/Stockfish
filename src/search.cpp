@@ -532,7 +532,7 @@ void Search::Worker::clear() {
 // Main search function for both PV and non-PV nodes
 template<NodeType nodeType>
 Value Search::Worker::search(
-  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
+  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool earlyCutoff) {
 
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
@@ -759,6 +759,9 @@ Value Search::Worker::search(
                        unadjustedStaticEval, tt.generation());
     }
 
+    if (earlyCutoff && eval >= beta)
+				return eval;
+
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
@@ -947,6 +950,8 @@ moves_loop:  // When in check, search starts here
 
     int  moveCount        = 0;
     bool moveCountPruning = false;
+    int fmc = 0;
+
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -996,7 +1001,8 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
-            moveCountPruning = moveCount >= futility_move_count(improving, depth);
+            fmc = futility_move_count(improving, depth);
+            moveCountPruning = moveCount >= fmc * 2;
 
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r;
@@ -1197,7 +1203,7 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
             Depth d = std::max(1, std::min(newDepth - r, newDepth + !allNode));
 
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true, moveCount > fmc);
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)

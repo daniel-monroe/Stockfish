@@ -67,7 +67,7 @@ namespace {
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving) {
     Value futilityMult       = 118 - 33 * noTtCutNode;
-    Value improvingDeduction = improving * futilityMult * 8 / 3;
+    Value improvingDeduction = improving * futilityMult * 7 / 3;
 
     return futilityMult * d - improvingDeduction;
 }

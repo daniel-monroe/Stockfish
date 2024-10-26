@@ -1383,6 +1383,8 @@ moves_loop:  // When in check, search starts here
         // Proportional to "how much damage we have to undo"
         bonus += std::min(-(ss - 1)->statScore / 102, 305);
 
+        bonus -= ((ss - 1)->moveCount == 1) * 100;
+
         bonus = std::max(bonus, 0);
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,

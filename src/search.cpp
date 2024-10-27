@@ -121,7 +121,11 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
-                      Depth                depth);
+                      Depth                depth,
+                      ValueList<Value, 32>& quietValues,
+                      Value                bestValue,
+                      Value                alpha,
+                      Value beta);
 
 }  // namespace
 
@@ -572,6 +576,8 @@ Value Search::Worker::search(
 
     ValueList<Move, 32> capturesSearched;
     ValueList<Move, 32> quietsSearched;
+    ValueList<Value, 32> quietValues;
+
 
     // Step 1. Initialize node
     Worker* thisThread = this;
@@ -1349,7 +1355,10 @@ moves_loop:  // When in check, search starts here
             if (capture)
                 capturesSearched.push_back(move);
             else
+            {
                 quietsSearched.push_back(move);
+                quietValues.push_back(value);
+            }
         }
     }
 
@@ -1371,7 +1380,7 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
+        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth, quietValues, bestValue, alpha, beta);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1789,7 +1798,11 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
-                      Depth                depth) {
+                      Depth                depth,
+                      ValueList<Value, 32>& quietValues,
+            	  Value bestValue,
+                      Value                alpha,
+                      Value                beta) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
@@ -1803,8 +1816,18 @@ void update_all_stats(const Position&      pos,
         update_quiet_histories(pos, ss, workerThread, bestMove, quietMoveBonus);
 
         // Decrease stats for all non-best quiet moves
-        for (Move move : quietsSearched)
-            update_quiet_histories(pos, ss, workerThread, move, -quietMoveMalus);
+
+        auto it1 = quietsSearched.begin();
+        auto it2 = quietValues.begin();
+
+        // iterate over both together
+        for (; it1 != quietsSearched.end() && it2 != quietValues.end(); ++it1, ++it2)
+        {
+
+            // if bestvalue is at least beta or the value is at least alpha we give the full malus, else half of it
+            update_quiet_histories(pos, ss, workerThread, *it1, (bestValue >= beta || *it2 < alpha) ? -quietMoveMalus : -quietMoveMalus / 2);
+            // Apply any operations on `*it2` here, if needed
+        }
     }
     else
     {

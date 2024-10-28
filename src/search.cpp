@@ -65,10 +65,9 @@ using namespace Search;
 namespace {
 
 
-int x1 = 50, x2 = 50, x3 = 0, x4 = 50, x5 = 0, x6 = 0;
+int x1 = 50, x2 = 50, x3 = 0, x4 = 50, x5 = 0;
 
 TUNE(SetRange(0, 100), x1, x2, x3, x4, x5);
-TUNE(SetRange(-50, 50), x6);
 
 
 
@@ -1012,8 +1011,7 @@ moves_loop:  // When in check, search starts here
                 x2 * improving +
                 x3 * (ss->staticEval > alpha) +
                 x4 * (ss->staticEval > beta) +
-                x5  * (ss->staticEval > beta + 100) +
-                x6 * (bestValue >= alpha)
+                x5  * (ss->staticEval > beta + 100) 
               ) / 100;
 
 

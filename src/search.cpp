@@ -1800,8 +1800,8 @@ void update_all_stats(const Position&      pos,
     PieceType              captured;
 
 
-    int quietMoveBonus = stat_bonus(depth) * (100 - 50 * cutNode) / 100;
-    int quietMoveMalus = stat_malus(depth) * (100 - 50 * cutNode) / 100;
+    int quietMoveBonus = stat_bonus(depth) * (100 - 25 * cutNode) / 100;
+    int quietMoveMalus = stat_malus(depth) * (100 - 25 * cutNode) / 100;
 
     if (!pos.capture_stage(bestMove))
     {

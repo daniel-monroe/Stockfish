@@ -1167,7 +1167,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && move != ttData.move)
-            r += 1 + (depth < 8 || ttData.move.to_sq() == prevSq);
+            r += 1 + (depth < 8) + (ttData.move.to_sq() == prevSq);
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)

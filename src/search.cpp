@@ -1388,6 +1388,11 @@ moves_loop:  // When in check, search starts here
           << stat_bonus(depth) * bonus / 174;
 
 
+        if ((ss - 3)->moveCount > 5)
+          thisThread->mainHistory[~us][((ss - 3)->currentMove).from_to()]
+            << stat_bonus(depth) * bonus / 200;
+
+
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << stat_bonus(depth) * bonus / 25;

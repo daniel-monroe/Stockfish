@@ -1193,6 +1193,12 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;
 
+        if (!capture)
+            r -= thisThread
+                   ->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
+               / 16384;
+
+
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
         {

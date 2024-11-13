@@ -1165,21 +1165,23 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
+        int auxR = 0;
+
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
+            auxR += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
-            r += 1043 + (depth < 8) * 999;
+            auxR += 1043 + (depth < 8) * 999;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
-            r += 938 + allNode * 960;
+            auxR += 938 + allNode * 960;
 
         // For first picked move (ttMove) reduce reduction (~3 Elo)
         else if (move == ttData.move)
-            r -= 1879;
+            auxR -= 1879;
 
         if (capture)
             ss->statScore =
@@ -1191,7 +1193,9 @@ moves_loop:  // When in check, search starts here
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore * 1287 / 16384;
+        auxR -= ss->statScore * 1287 / 16384;
+
+        r += auxR * (4 + (depth < 8)) / 4;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)

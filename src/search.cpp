@@ -1195,7 +1195,7 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         auxR -= ss->statScore * 1287 / 16384;
 
-        r += auxR * (4 + (depth < 8)) / 4;
+        r += auxR * (4 - (depth >= 4 && depth < 15)) / 4;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)

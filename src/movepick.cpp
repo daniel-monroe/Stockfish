@@ -145,18 +145,23 @@ void MovePicker::score() {
     }
 
     for (auto& m : *this)
+    {
+        Piece     pc   = pos.moved_piece(m);
+        PieceType pt   = type_of(pc);
+        Square    from = m.from_sq();
+        Square    to   = m.to_sq();
+
         if constexpr (Type == CAPTURES)
+        {
             m.value =
               7 * int(PieceValue[pos.piece_on(m.to_sq())])
               + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
+            // bonus for checks
+            m.value += bool(pos.check_squares(pt) & to) * 2048;
+        }
 
         else if constexpr (Type == QUIETS)
         {
-            Piece     pc   = pos.moved_piece(m);
-            PieceType pt   = type_of(pc);
-            Square    from = m.from_sq();
-            Square    to   = m.to_sq();
-
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
             m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
@@ -195,6 +200,7 @@ void MovePicker::score() {
                         + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()]
                         + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
         }
+    }
 }
 
 // Returns the next move satisfying a predicate function.

@@ -796,8 +796,6 @@ Value Search::Worker::search(
         && eval < VALUE_TB_WIN_IN_MAX_PLY)
         return beta + (eval - beta) / 3;
 
-    improving |= ss->staticEval >= beta + 100;
-
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
         && ss->staticEval >= beta - 21 * depth + 421 && !excludedMove && pos.non_pawn_material(us)
@@ -988,6 +986,8 @@ moves_loop:  // When in check, search starts here
         newDepth = depth - 1;
 
         int delta = beta - alpha;
+
+        improving |= ss->staticEval >= beta;
 
         Depth r = reduction(improving, depth, moveCount, delta);
 

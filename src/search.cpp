@@ -1181,6 +1181,9 @@ moves_loop:  // When in check, search starts here
         else if (move == ttData.move)
             r -= 1879;
 
+
+        r += 500 * (bestValue >= alpha);
+
         if (capture)
             ss->statScore =
               thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]

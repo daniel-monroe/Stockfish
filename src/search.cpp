@@ -95,7 +95,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
 
     const auto cv =
       (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + cntcv * 5880) / 131072;
-    v += cv * (qs ? 13 : 7) / 10;
+    v += cv * (qs ? 7 : 13) / 10;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 

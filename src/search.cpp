@@ -1558,7 +1558,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
 
         // Stand pat. Return immediately if static value is at least beta
-        if (bestValue >= beta - 5)
+        if (bestValue >= beta + 10)
         {
             if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY)
                 bestValue = (bestValue + beta) / 2;
@@ -1568,6 +1568,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                                tt.generation());
             return bestValue;
         }
+        bestValue = std::min(bestValue, beta - 1);
 
         if (bestValue > alpha)
             alpha = bestValue;

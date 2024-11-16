@@ -1570,7 +1570,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
 
         if (bestValue > alpha)
+        {
+            ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
+                           unadjustedStaticEval, tt.generation());
             alpha = bestValue;
+        }
 
         futilityBase = ss->staticEval + 306;
     }

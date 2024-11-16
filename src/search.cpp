@@ -1557,20 +1557,19 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
         }
 
-        // Stand pat. Return immediately if static value is at least beta
-        if (bestValue >= beta)
+        // Stand pat. Return immediately if static value is greater than alpha
+        if (bestValue > alpha)
         {
-            if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY)
+            if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY && bestValue >= beta)
                 bestValue = (bestValue + beta) / 2;
             if (!ss->ttHit)
-                ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
+                ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), false,
+                               bestValue >= beta ? BOUND_LOWER : BOUND_NONE,
                                DEPTH_UNSEARCHED, Move::none(), unadjustedStaticEval,
                                tt.generation());
             return bestValue;
         }
 
-        if (bestValue > alpha)
-            alpha = bestValue;
 
         futilityBase = ss->staticEval + 306;
     }

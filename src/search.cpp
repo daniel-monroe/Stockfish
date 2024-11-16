@@ -1166,7 +1166,7 @@ moves_loop:  // When in check, search starts here
         // These reduction adjustments have no proven non-linear scaling
 
         // Increase reduction for cut nodes (~4 Elo)
-        if (cutNode)
+        else
             r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)

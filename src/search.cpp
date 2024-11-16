@@ -1570,7 +1570,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
 
         if (bestValue > alpha)
-            alpha = bestValue;
+        {
+            // Static evaluation is saved as it was before adjustment by correction history
+            ttWriter.write(posKey, VALUE_NONE, false, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
+                           unadjustedStaticEval, tt.generation());
+            return bestValue;
+        }
 
         futilityBase = ss->staticEval + 306;
     }

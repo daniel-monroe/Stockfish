@@ -65,6 +65,10 @@ using namespace Search;
 
 namespace {
 
+
+ int x1 = 100, x2 = 100, x3 = 100;
+TUNE(x1, x2, x3);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 27 * noTtCutNode;
@@ -1391,6 +1395,13 @@ moves_loop:  // When in check, search starts here
         bonus += std::min(-(ss - 1)->statScore / 113, 300);
 
         bonus = std::max(bonus, 0);
+
+        if (cutNode)
+            bonus = bonus * x1 / 100;
+        else if (PvNode)
+						bonus = bonus * x2 / 100;
+        else
+          	bonus = bonus * x3 / 100;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 93);

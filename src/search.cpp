@@ -1392,6 +1392,9 @@ moves_loop:  // When in check, search starts here
 
         bonus = std::max(bonus, 0);
 
+        if (!cutNode)
+            bonus = bonus * 80 / 100;
+
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 93);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]

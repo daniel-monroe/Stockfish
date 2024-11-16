@@ -1804,8 +1804,8 @@ void update_all_stats(const Position&      pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth) * (4 - cutNode) / 4;
-    int malus = stat_malus(depth) * (4 - cutNode) / 4;
+    int bonus = stat_bonus(depth) * (3 - cutNode) / 3;
+    int malus = stat_malus(depth) * (3 - cutNode) / 3;
 
     if (!pos.capture_stage(bestMove))
     {

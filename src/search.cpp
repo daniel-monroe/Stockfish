@@ -880,6 +880,9 @@ Value Search::Worker::search(
             if (!pos.legal(move))
                 continue;
 
+            if (ttCapture && move != ttData.move)
+								break;
+
             assert(pos.capture_stage(move));
 
             movedPiece = pos.moved_piece(move);

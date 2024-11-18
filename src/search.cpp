@@ -1393,14 +1393,14 @@ moves_loop:  // When in check, search starts here
         bonus = std::max(bonus, 0);
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 93);
+                                      stat_bonus(depth + 1) * bonus / 93);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 179;
+          << stat_bonus(depth + 1) * bonus / 179;
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 24;
+              << stat_bonus(depth + 1) * bonus / 24;
     }
 
     // Bonus when search fails low and there is a TT move

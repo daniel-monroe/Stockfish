@@ -1407,8 +1407,9 @@ moves_loop:  // When in check, search starts here
 
     else if (priorCapture && prevSq != SQ_NONE)
     {
-        Piece capturedPiece = pos.piece_on(bestMove.to_sq());
+        Piece capturedPiece = (ss - 1)->capturedPiece;
         assert(capturedPiece != NO_PIECE);
+        // bonus for prior countermoves that caused the fail low
         thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
           << stat_bonus(depth);
     }

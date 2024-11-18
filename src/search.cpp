@@ -1182,16 +1182,14 @@ moves_loop:  // When in check, search starts here
             r -= 1879;
 
         if (capture)
-            ss->statScore =
-              thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]
-              - 11000;
+            ss->statScore = 0;
         else
             ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
-                          + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
+                          + (*contHist[1])[movedPiece][move.to_sq()];
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore * 1287 / 16384;
+        r -= ss->statScore / 13;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
@@ -1707,7 +1705,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
 Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return (reductionScale + 1304 - delta * 814 / rootDelta) + (!i && reductionScale > 1423) * 1135;
+    return (reductionScale + 1604 - delta * 814 / rootDelta) + (!i && reductionScale > 1423) * 1135;
 }
 
 // elapsed() returns the time elapsed since the search started. If the

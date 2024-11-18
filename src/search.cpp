@@ -629,6 +629,8 @@ Value Search::Worker::search(
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+    ss->pawnStructureIndex = pawn_structure_index(pos);
+
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -763,8 +765,8 @@ Value Search::Worker::search(
     {
         int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1831, 1428) + 623;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+        if (((ss - 1)->currentMove).type_of() != PROMOTION)
+            thisThread->pawnHistory[(ss - 1)->pawnStructureIndex][pos.piece_on(prevSq)][prevSq]
               << bonus / 2;
     }
 
@@ -1398,8 +1400,8 @@ moves_loop:  // When in check, search starts here
           << stat_bonus(depth) * bonus / 179;
 
 
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+        if (((ss - 1)->currentMove).type_of() != PROMOTION)
+            thisThread->pawnHistory[(ss - 1)->pawnStructureIndex][pos.piece_on(prevSq)][prevSq]
               << stat_bonus(depth) * bonus / 24;
     }
 

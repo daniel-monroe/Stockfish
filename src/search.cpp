@@ -1115,7 +1115,7 @@ moves_loop:  // When in check, search starts here
                 // ttMove in favor of other moves based on some conditions:
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
-                else if (ttData.value >= beta)
+                else if (singularBeta >= beta)
                     extension = -3;
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high
@@ -1192,6 +1192,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;
+
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)

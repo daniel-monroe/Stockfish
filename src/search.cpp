@@ -1809,7 +1809,7 @@ void update_all_stats(const Position&      pos,
     PieceType              captured;
 
 
-    int bonus_mult = (100 - 30 * cutNode + 40 * PvNode);
+    int bonus_mult = (100 + 100 * !pos.see_ge(bestMove, -100) );
 
     int bonus = stat_bonus(depth) * bonus_mult / 100;
     int malus = stat_malus(depth) * bonus_mult / 100;

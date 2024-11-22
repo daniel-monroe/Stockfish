@@ -1525,6 +1525,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER)))
         return ttData.value;
 
+
+    Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
+
+
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
@@ -1557,6 +1561,19 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
         }
 
+
+        // Use static evaluation difference to improve quiet move ordering (~9 Elo)
+        if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !pos.captured_piece() )
+        {
+            int bonus =
+              std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1831, 1428) + 623;
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
+            if (type_of(pos.piece_on(prevSq)) != PAWN
+                && ((ss - 1)->currentMove).type_of() != PROMOTION)
+                thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+                  << bonus;
+        }
+
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
@@ -1578,7 +1595,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory};
 
-    Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
 
     // Initialize a MovePicker object for the current position, and prepare to search
     // the moves. We presently use two stages of move generator in quiescence search:

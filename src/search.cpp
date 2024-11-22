@@ -1810,7 +1810,7 @@ void update_all_stats(const Position&      pos,
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
-            update_quiet_histories(pos, ss, workerThread, move, -malus);
+            update_quiet_histories(pos, ss, workerThread, move, -malus / (2 - pos.see_ge(move, -100)));
     }
     else
     {
@@ -1829,7 +1829,8 @@ void update_all_stats(const Position&      pos,
     {
         moved_piece = pos.moved_piece(move);
         captured    = type_of(pos.piece_on(move.to_sq()));
-        captureHistory[moved_piece][move.to_sq()][captured] << -malus;
+        captureHistory[moved_piece][move.to_sq()][captured]
+          << -malus / (2 - pos.see_ge(move, -100));
     }
 }
 

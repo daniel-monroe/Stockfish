@@ -811,6 +811,8 @@ Value Search::Worker::search(
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &thisThread->continuationHistory[0][0][NO_PIECE][0];
         ss->continuationCorrectionHistory = &thisThread->continuationCorrectionHistory[NO_PIECE][0];
+        ss->lowSee                        = false;
+
 
         pos.do_null_move(st, tt);
 
@@ -894,6 +896,7 @@ Value Search::Worker::search(
               &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
             ss->continuationCorrectionHistory =
               &this->continuationCorrectionHistory[pos.moved_piece(move)][move.to_sq()];
+            ss->lowSee = !pos.see_ge(move, -100);
 
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
             pos.do_move(move, st);
@@ -1145,6 +1148,8 @@ moves_loop:  // When in check, search starts here
         ss->continuationCorrectionHistory =
           &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
+        ss->lowSee         = !pos.see_ge(move, -100);
+
 
         // Step 16. Make the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
@@ -1385,7 +1390,9 @@ moves_loop:  // When in check, search starts here
     {
         int bonus = (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
                      + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
-                     + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
+                     + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83)
+                     + 100 * (ss - 1)->lowSee
+        );
 
         // Proportional to "how much damage we have to undo"
         bonus += std::min(-(ss - 1)->statScore / 113, 300);
@@ -1653,6 +1660,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
         ss->continuationCorrectionHistory =
           &thisThread->continuationCorrectionHistory[pos.moved_piece(move)][move.to_sq()];
+        ss->lowSee = !pos.see_ge(move, -100);
 
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);

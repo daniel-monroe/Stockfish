@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1201,6 +1201,14 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(1, std::min(newDepth - r / 1024, newDepth + !allNode));
 
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+
+            if (value > alpha && d < newDepth - 9)
+            {
+                Depth new_d = std::max(1, newDepth - r / 2048);
+                if (new_d > d)
+                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+                d = new_d;
+            }
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)

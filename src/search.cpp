@@ -890,6 +890,7 @@ Value Search::Worker::search(
             prefetch(tt.first_entry(pos.key_after(move)));
 
             ss->currentMove = move;
+            ss->capturedPiece = captured;
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
             ss->continuationCorrectionHistory =
@@ -1139,6 +1140,7 @@ moves_loop:  // When in check, search starts here
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
+        ss->capturedPiece = pos.piece_on(move.to_sq());
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
@@ -1400,6 +1402,14 @@ moves_loop:  // When in check, search starts here
               << stat_bonus(depth) * bonus / 24;
     }
 
+    else if (priorCapture && prevSq != SQ_NONE)
+    {
+        // bonus for prior countermoves that caused the fail low
+        Piece capturedPiece = (ss - 1)->capturedPiece;
+        thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
+          << stat_bonus(depth) * 2;
+    }
+
     // Bonus when search fails low and there is a TT move
     else if (ttData.move && !allNode)
         thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) * 23 / 100;
@@ -1645,6 +1655,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
         // Update the current move
         ss->currentMove = move;
+        ss->capturedPiece = pos.piece_on(move.to_sq());
         ss->continuationHistory =
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];

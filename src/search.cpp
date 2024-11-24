@@ -1814,7 +1814,8 @@ void update_all_stats(const Position&      pos,
 
     if (!pos.capture_stage(bestMove))
     {
-        update_quiet_histories(pos, ss, workerThread, bestMove, bonus * (1 + (bestMoveCount > 8)) );
+        update_quiet_histories(pos, ss, workerThread, bestMove,
+                               bonus * (1 + (statScoreAtBestMove < -15000)));
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)

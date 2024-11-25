@@ -1180,7 +1180,7 @@ moves_loop:  // When in check, search starts here
         else if (move == ttData.move)
             r -= 1879;
 
-        r -= 500 * (ttData.value >= beta + 100);
+        r -= 1024 * (ttData.value >= beta + 100);
 
         if (capture)
             ss->statScore = 0;

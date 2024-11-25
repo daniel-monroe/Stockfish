@@ -63,7 +63,14 @@ void syzygy_extend_pv(const OptionsMap&            options,
 using Eval::evaluate;
 using namespace Search;
 
+int x1 = 200, x2 = 100, x3 = 100, x4 = 0, x5 = 0, x6 = 0, x7 = 0, x8 = 3996, x9 = 1287;
+
+TUNE(SetRange(0, 300), x1, x2, x3, x4, x5, x6, x7);
+TUNE(SetRange(-10000, 10000), x8);
+TUNE(x9);
+
 namespace {
+
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
@@ -538,7 +545,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -947,6 +954,8 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    int pawnHash = pawn_structure_index(pos);
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1183,12 +1192,26 @@ moves_loop:  // When in check, search starts here
         if (capture)
             ss->statScore = 0;
         else
-            ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                          + (*contHist[0])[movedPiece][move.to_sq()]
-                          + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
+        {
+
+
+            int statScore = x1 * thisThread->mainHistory[us][move.from_to()]
+                          + x2 * (*contHist[0])[movedPiece][move.to_sq()]
+                          + x3 * (*contHist[1])[movedPiece][move.to_sq()]
+                          + x4 * (*contHist[2])[movedPiece][move.to_sq()]
+                          + x5 * (*contHist[3])[movedPiece][move.to_sq()]
+                          + x6 * (*contHist[5])[movedPiece][move.to_sq()]
+                          + x7 * thisThread->pawnHistory[pawnHash][movedPiece][move.to_sq()];
+
+
+            statScore = statScore / 100 - x8;
+
+            ss->statScore = statScore;
+        }
+
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore * 1287 / 16384;
+        r -= ss->statScore * x9 / 16384;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)

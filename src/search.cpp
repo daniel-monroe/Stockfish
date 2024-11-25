@@ -65,6 +65,11 @@ using namespace Search;
 
 namespace {
 
+
+int a1 = 0, a2 = 0, a3 = 0, a4 = 0, a5 = 0, a6 = 0, a7 = 0, a8 = 0, a9 = 0, a10 = 0;
+
+TUNE(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, SetRange(-1000, 1000));
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 27 * noTtCutNode;
@@ -1179,6 +1184,11 @@ moves_loop:  // When in check, search starts here
         // For first picked move (ttMove) reduce reduction (~3 Elo)
         else if (move == ttData.move)
             r -= 1879;
+        
+        r += a1 * capture + a2 * givesCheck + a3 * improving + a6 * (beta - alpha == 1)
+           + a7 * (ttData.value >= beta + 100) + a8 * (ttData.depth >= depth)
+           + a9 * (ttData.value >= alpha) + a10 * (!ttData.move);
+
 
         if (capture)
             ss->statScore = 0;

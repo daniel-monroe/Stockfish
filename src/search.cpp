@@ -1180,6 +1180,9 @@ moves_loop:  // When in check, search starts here
         else if (move == ttData.move)
             r -= 1879;
 
+        r -= 500 * (eval >= beta + 100);	// Decrease reduction if eval is high (~1 Elo)
+        
+
         if (capture)
             ss->statScore = 0;
         else

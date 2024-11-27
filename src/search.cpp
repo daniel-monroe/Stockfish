@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -998,7 +998,7 @@ moves_loop:  // When in check, search starts here
             if (moveCount >= futility_move_count(improving, depth))
                 mp.skip_quiet_moves();
 
-            // Reduced depth of the next LMR search
+            // Reduced depth of the next LMR search 
             int lmrDepth = newDepth - r / 1024;
 
             if (capture || givesCheck)
@@ -1010,7 +1010,7 @@ moves_loop:  // When in check, search starts here
                 // Futility pruning for captures (~2 Elo)
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
                 {
-                    Value futilityValue = ss->staticEval + 287 + 253 * lmrDepth
+                    Value futilityValue = eval + 287 + 253 * lmrDepth
                                         + PieceValue[capturedPiece] + captHist / 7;
                     if (futilityValue <= alpha)
                         continue;
@@ -1037,7 +1037,7 @@ moves_loop:  // When in check, search starts here
                 lmrDepth += history / 3609;
 
                 Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth;
+                  eval + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth;
 
                 // Futility pruning: parent node (~13 Elo)
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)

@@ -661,7 +661,7 @@ Value Search::Worker::search(
 
     if (ttData.move && !ttCapture && !excludedMove && ttData.depth >= 0)
     {
-        update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(ttData.depth));
+        update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(ttData.depth) / 2);
     }
 
     // Step 5. Tablebases probe

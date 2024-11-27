@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -657,6 +657,11 @@ Value Search::Worker::search(
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
             return ttData.value;
+    }
+
+    if (ttData.move && !ttCapture && !excludedMove && ttData.depth >= 0)
+    {
+        update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(ttData.depth));
     }
 
     // Step 5. Tablebases probe

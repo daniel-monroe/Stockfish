@@ -1799,6 +1799,8 @@ void update_all_stats(const Position&      pos,
     PieceType              captured;
 
     int bonus = stat_bonus(depth);
+    if (!pos.see_ge(bestMove, -100))
+        bonus *= 4;
     int malus = stat_malus(depth);
 
     if (!pos.capture_stage(bestMove))

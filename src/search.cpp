@@ -1384,6 +1384,9 @@ moves_loop:  // When in check, search starts here
                      + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
                      + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
 
+        if (excludedMove)
+            bonus += 100;
+
         // Proportional to "how much damage we have to undo"
         bonus += std::min(-(ss - 1)->statScore / 113, 300);
 

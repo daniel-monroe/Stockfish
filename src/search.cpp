@@ -1181,7 +1181,7 @@ moves_loop:  // When in check, search starts here
             r -= 1879;
 
         else if (ttData.value != VALUE_NONE && ttData.value >= beta && bestValue <= alpha)
-						r -= 1024;
+						r -= 512;
 
         if (capture)
             ss->statScore = 0;

@@ -1809,12 +1809,12 @@ void update_all_stats(const Position&      pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth);
+    int bonus = stat_bonus(depth) * (1 + (bestMoveCount > 1));
     int malus = stat_malus(depth);
 
     if (!pos.capture_stage(bestMove))
     {
-        update_quiet_histories(pos, ss, workerThread, bestMove, bonus * (1 + (bestMoveCount > 8)) );
+        update_quiet_histories(pos, ss, workerThread, bestMove, bonus );
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)

@@ -1240,7 +1240,7 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
 
-            newDepth += (!ttData.move && PvNode);
+            newDepth += (!ttData.move && PvNode) * 2;
 
             // Extend move from transposition table if we are about to dive into qsearch.
             if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)

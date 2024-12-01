@@ -1183,7 +1183,7 @@ moves_loop:  // When in check, search starts here
         if (capture)
             ss->statScore = 0;
         else
-            ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
+            ss->statScore = 3 * thisThread->mainHistory[us][move.from_to()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
 

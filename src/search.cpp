@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1183,9 +1183,12 @@ moves_loop:  // When in check, search starts here
         if (capture)
             ss->statScore = 0;
         else
-            ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                          + (*contHist[0])[movedPiece][move.to_sq()]
-                          + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
+            ss->statScore =
+              2 * thisThread->mainHistory[us][move.from_to()]
+              + thisThread
+                  ->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
+              + (*contHist[0])[movedPiece][move.to_sq()] + (*contHist[1])[movedPiece][move.to_sq()]
+              - 3996;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;

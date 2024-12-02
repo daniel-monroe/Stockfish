@@ -1180,6 +1180,10 @@ moves_loop:  // When in check, search starts here
         else if (move == ttData.move)
             r -= 1879;
 
+        // if we capture a queen reduce reduction
+        if (type_of(pos.captured_piece()) == QUEEN)
+            r -= 1024;
+
         if (capture)
             ss->statScore = 0;
         else

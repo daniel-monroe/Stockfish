@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1179,6 +1179,15 @@ moves_loop:  // When in check, search starts here
         // For first picked move (ttMove) reduce reduction (~3 Elo)
         else if (move == ttData.move)
             r -= 1879;
+
+
+        int ch = 7 * int(PieceValue[pos.piece_on(move.to_sq())])
+               + thisThread
+                   ->captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))];
+
+        if (capture && pos.see_ge(move, -ch / 18) )
+						r -= 1024;
+        
 
         if (capture)
             ss->statScore = 0;

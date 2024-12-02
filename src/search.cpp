@@ -1182,7 +1182,7 @@ moves_loop:  // When in check, search starts here
 
         // if we capture a queen reduce reduction
         if (type_of(pos.captured_piece()) == QUEEN)
-            r -= 1024;
+            r -= 2048;
 
         if (capture)
             ss->statScore = 0;

@@ -1182,11 +1182,12 @@ moves_loop:  // When in check, search starts here
 
 
 
+
+
         if (capture)
             ss->statScore =
-              7 * int(PieceValue[pos.captured_piece()])
-              + thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]
-              - 5000;
+              thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]
+              - 13000 * (type_of(pos.captured_piece()) == PAWN && !pos.see_ge(move, -200) && !givesCheck);
         else
             ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                           + (*contHist[0])[movedPiece][move.to_sq()]

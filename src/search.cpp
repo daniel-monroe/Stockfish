@@ -456,7 +456,7 @@ void Search::Worker::iterative_deepening() {
             double bestMoveInstability = 1 + 1.88 * totBestMoveChanges / threads.size();
             double recapture           = limits.capSq == rootMoves[0].pv[0].to_sq()
                                 && rootPos.see_ge(rootMoves[0].pv[0], 300) && stableBestMove
-                                         ? 0.7
+                                         ? 0.5
                                          : 1.0;
 
             double totalTime =

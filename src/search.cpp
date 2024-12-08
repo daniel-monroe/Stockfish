@@ -450,7 +450,8 @@ void Search::Worker::iterative_deepening() {
             fallingEval = std::clamp(fallingEval, 0.580, 1.667);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction    = lastBestMoveDepth + 8 < completedDepth ? 1.495 : 0.687;
+            bool stableBestMove = lastBestMoveDepth + 8 >= completedDepth;
+            timeReduction       = stableBestMove ? 0.687 : 1.495; 
             double reduction = (1.48 + mainThread->previousTimeReduction) / (2.17 * timeReduction);
             double bestMoveInstability = 1 + 1.88 * totBestMoveChanges / threads.size();
             double recapture           = limits.capSq == rootMoves[0].pv[0].to_sq() ? 0.955 : 1.005;
@@ -458,11 +459,28 @@ void Search::Worker::iterative_deepening() {
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * recapture;
 
+            // obvious bestmove
+            bool obviousBestMove = false;
+            if (stableBestMove)
+            {
+                Value singularBeta = bestValue - 200;
+                ss->excludedMove   = rootMoves[0].pv[0];
+                Value singularValue =
+                  search<NonPV>(rootPos, ss, singularBeta - 1, singularBeta, completedDepth / 2, true);
+                ss->excludedMove = Move::none();
+                obviousBestMove  = singularValue <= singularBeta - 1; // no other move comes close
+            }
+
+            if (obviousBestMove) totalTime *= 0.7;
+
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
                 totalTime = std::min(500.0, totalTime);
 
             auto elapsedTime = elapsed();
+
+
+
 
             if (completedDepth >= 10 && nodesEffort >= 97 && elapsedTime > totalTime * 0.739
                 && !mainThread->ponder)

@@ -471,7 +471,7 @@ void Search::Worker::iterative_deepening() {
                 obviousBestMove  = singularValue <= singularBeta - 1; // no other move comes close
             }
 
-            if (obviousBestMove) totalTime *= 0.7;
+            if (obviousBestMove) totalTime *= 0.4;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)

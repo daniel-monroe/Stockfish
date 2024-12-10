@@ -458,6 +458,11 @@ void Search::Worker::iterative_deepening() {
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * recapture;
 
+            if (limits.capSq == rootMoves[0].pv[0].to_sq()
+                && rootPos.see_ge(rootMoves[0].pv[0], 300)
+                && lastBestMoveDepth + 8 < completedDepth)
+                totalTime *= 0.3;
+
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
                 totalTime = std::min(500.0, totalTime);

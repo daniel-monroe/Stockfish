@@ -1190,6 +1190,12 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;
 
+        if (move == ss->excludedBestMove)
+        {
+            assert(move != ttData.move);
+            r -= 1024;
+        }
+
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
         {
@@ -1323,6 +1329,11 @@ moves_loop:  // When in check, search starts here
             if (value + inc > alpha)
             {
                 bestMove = move;
+
+                if (excludedMove)
+                {
+                  ss->excludedBestMove = move;
+                }
 
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
@@ -1676,6 +1687,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             if (value > alpha)
             {
                 bestMove = move;
+                if (ss->excludedMove)
+                {
+                  assert(move != ttData.move);
+                  ss->excludedBestMove = move;
+                }
 
                 if (PvNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);

@@ -1100,7 +1100,7 @@ moves_loop:  // When in check, search starts here
                 // over the original beta, we assume this expected cut-node is not
                 // singular (multiple moves fail high), and we can prune the whole
                 // subtree by returning a softbound.
-                else if (ttData.value >= beta && value >= beta && !is_decisive(value))
+                else if (ttData.value >= beta - 100 && value >= beta && !is_decisive(value))
                     return value;
 
                 // Negative extensions

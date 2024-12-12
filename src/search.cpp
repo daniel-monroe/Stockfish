@@ -1102,7 +1102,7 @@ moves_loop:  // When in check, search starts here
                 // subtree by returning a softbound.
                 else if (value >= beta && !is_decisive(value))
                 {
-                    if (!priorCapture && prevSq != SQ_NONE)
+                    if (!priorCapture && prevSq != SQ_NONE && !excludedMove)
                     {
                         int bonus =
                           (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
@@ -1112,7 +1112,7 @@ moves_loop:  // When in check, search starts here
                         // Proportional to "how much damage we have to undo"
                         bonus += std::min(-(ss - 1)->statScore / 113, 300);
 
-                        bonus = std::max(bonus, 0) / 2;
+                        bonus = std::max(bonus, 0);
 
                         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                                       stat_bonus(depth) * bonus / 93);

@@ -1193,7 +1193,7 @@ moves_loop:  // When in check, search starts here
         if (move == ss->excludedBestMove)
         {
             assert(move != ttData.move);
-            r -= 1024;
+            r -= 512;
         }
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)

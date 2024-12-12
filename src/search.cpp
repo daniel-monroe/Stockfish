@@ -1377,7 +1377,7 @@ moves_loop:  // When in check, search starts here
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
 
     // Bonus for prior countermove that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
+    else if (!priorCapture && prevSq != SQ_NONE && !(ss-1)->excludedMove)
     {
         int bonus = (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
                      + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)

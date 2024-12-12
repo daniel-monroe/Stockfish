@@ -1101,7 +1101,35 @@ moves_loop:  // When in check, search starts here
                 // singular (multiple moves fail high), and we can prune the whole
                 // subtree by returning a softbound.
                 else if (value >= beta && !is_decisive(value))
+                {
+                    if (!priorCapture && prevSq != SQ_NONE)
+                    {
+                        int bonus =
+                          (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
+                           + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
+                           + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
+
+                        // Proportional to "how much damage we have to undo"
+                        bonus += std::min(-(ss - 1)->statScore / 113, 300);
+
+                        bonus = std::max(bonus, 0) / 2;
+
+                        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                                      stat_bonus(depth) * bonus / 93);
+                        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+                          << stat_bonus(depth) * bonus / 179;
+
+
+                        if (type_of(pos.piece_on(prevSq)) != PAWN
+                            && ((ss - 1)->currentMove).type_of() != PROMOTION)
+                            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)]
+                                                   [prevSq]
+                              << stat_bonus(depth) * bonus / 24;
+                    }
                     return value;
+
+                }
+ 
 
                 // Negative extensions
                 // If other moves failed high over (ttValue - margin) without the

@@ -458,6 +458,20 @@ void Search::Worker::iterative_deepening() {
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * recapture;
 
+            bool obviousBestMove = false;
+            if (lastBestMoveDepth + 12 < completedDepth && std::abs(bestValue) < 200)
+            {
+                Value singularBeta  = bestValue - 200;
+                ss->excludedMove    = rootMoves[0].pv[0];
+                Value singularValue = search<NonPV>(rootPos, ss, singularBeta - 1, singularBeta,
+                                                    completedDepth / 2, true);
+                ss->excludedMove    = Move::none();
+                obviousBestMove = singularValue <= singularBeta - 1;  // no other move comes close
+            }
+
+            if (obviousBestMove)
+                totalTime *= 0.7;
+
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
                 totalTime = std::min(500.0, totalTime);

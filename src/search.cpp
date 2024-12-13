@@ -470,7 +470,7 @@ void Search::Worker::iterative_deepening() {
             }
 
             if (obviousBestMove)
-                totalTime *= 0.7;
+                totalTime *= 0.4;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)

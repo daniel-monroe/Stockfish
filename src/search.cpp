@@ -459,7 +459,7 @@ void Search::Worker::iterative_deepening() {
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * recapture;
 
             bool obviousBestMove = false;
-            if (lastBestMoveDepth + 12 < completedDepth && std::abs(bestValue) < 200)
+            if (lastBestMoveDepth + 8 < completedDepth && std::abs(bestValue) < 200)
             {
                 Value singularBeta  = bestValue - 200;
                 ss->excludedMove    = rootMoves[0].pv[0];

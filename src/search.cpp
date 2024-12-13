@@ -748,8 +748,15 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval =
-          evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+        Key startKey                      = pos.start_key();
+        auto [sttHit, sttData, sttWriter] = tt.probe(startKey);
+
+        if (sttHit)
+            unadjustedStaticEval = sttData.eval - sttData.eval * pos.rule50_count() / 212;
+        else
+            unadjustedStaticEval =
+              evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+
         ss->staticEval = eval =
           to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
@@ -1555,10 +1562,23 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         else
         {
             // In case of null move search, use previous static eval with opposite sign
-            unadjustedStaticEval =
-              (ss - 1)->currentMove != Move::null()
-                ? evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                : -(ss - 1)->staticEval;
+        
+            if ((ss - 1)->currentMove != Move::null())
+            {
+                Key startKey                         = pos.start_key();
+                auto [sttHit, sttData, sttWriter] = tt.probe(startKey);
+
+                if (sttHit)
+                    unadjustedStaticEval = sttData.eval - sttData.eval * pos.rule50_count() / 212;
+                else
+                  unadjustedStaticEval =
+                    evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+
+            }
+            else
+            {
+                unadjustedStaticEval = -(ss - 1)->staticEval;
+            }
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
         }

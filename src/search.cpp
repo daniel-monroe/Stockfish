@@ -1101,7 +1101,12 @@ moves_loop:  // When in check, search starts here
                 // singular (multiple moves fail high), and we can prune the whole
                 // subtree by returning a softbound.
                 else if (value >= beta && !is_decisive(value))
+                {
+                    if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
+                        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                                      -stat_malus(depth + 1));
                     return value;
+                }
 
                 // Negative extensions
                 // If other moves failed high over (ttValue - margin) without the

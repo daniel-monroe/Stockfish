@@ -1192,7 +1192,7 @@ moves_loop:  // When in check, search starts here
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
 
 
-        if (singularMargin >= 300 && move != ttData.move)
+        if (singularMargin >= 300 && move != ttData.move && bestMove == ttData.move && bestValue >= alpha)
             r += 1024;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)

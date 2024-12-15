@@ -1376,32 +1376,26 @@ moves_loop:  // When in check, search starts here
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
 
-    // Bonus for prior countermove that caused the fail low
+    // Bonus for prior quiet move that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
-                     + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
-                     + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
+        int bonusMultiplier =
+          (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
+           + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
+           + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83)
+           + std::min(-(ss - 1)->statScore / 113, 300));
+        int bonus = std::max(bonusMultiplier, 0) * stat_bonus(depth);
 
-        // Proportional to "how much damage we have to undo"
-        bonus += std::min(-(ss - 1)->statScore / 113, 300);
-
-        bonus = std::max(bonus, 0);
-
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 93);
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 179;
-
-
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, bonus / 93);
+        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus / 179;
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 24;
+              << bonus / 24;
     }
 
+    // Bonus for prior capture that caused the fail low
     else if (priorCapture && prevSq != SQ_NONE)
     {
-        // bonus for prior countermoves that caused the fail low
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
         thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]

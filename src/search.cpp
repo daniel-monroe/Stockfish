@@ -566,6 +566,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
+    int   singularMargin;
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -943,6 +944,7 @@ moves_loop:  // When in check, search starts here
     value = bestValue;
 
     int moveCount = 0;
+    singularMargin = 0;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1091,6 +1093,8 @@ moves_loop:  // When in check, search starts here
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
 
+                    singularMargin = singularBeta - value;
+
                     depth += ((!PvNode) && (depth < 14));
                 }
 
@@ -1186,6 +1190,10 @@ moves_loop:  // When in check, search starts here
             ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
+
+
+        if (singularMargin >= 300 && move != ttData.move)
+            r += 1024;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;

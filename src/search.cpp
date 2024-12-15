@@ -1377,14 +1377,14 @@ moves_loop:  // When in check, search starts here
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
 
     // Bonus for prior quiet move that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
+    else if (!priorCapture && prevSq != SQ_NONE && depth >= 2)
     {
         int bonusMultiplier =
           (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
            + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
            + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83)
            + std::min(-(ss - 1)->statScore / 113, 300));
-        int bonus = std::max(bonusMultiplier, 0) * stat_bonus(depth + 1);
+        int bonus = std::max(bonusMultiplier, 0) * stat_bonus(depth);
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, bonus / 93);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus / 179;

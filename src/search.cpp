@@ -1384,7 +1384,7 @@ moves_loop:  // When in check, search starts here
            + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
            + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83)
            + std::min(-(ss - 1)->statScore / 113, 300));
-        int bonus = std::max(bonusMultiplier, 0) * stat_bonus(depth);
+        int bonus = std::max(bonusMultiplier, 0) * stat_bonus(depth + 1);
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, bonus / 93);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus / 179;

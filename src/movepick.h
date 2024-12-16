@@ -45,6 +45,7 @@ class MovePicker {
                const LowPlyHistory*,
                const CapturePieceToHistory*,
                const PieceToHistory**,
+               const PieceToHistory**,
                const PawnHistory*,
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
@@ -64,6 +65,8 @@ class MovePicker {
     const LowPlyHistory*         lowPlyHistory;
     const CapturePieceToHistory* captureHistory;
     const PieceToHistory**       continuationHistory;
+    const PieceToHistory**       positionHistory;
+
     const PawnHistory*           pawnHistory;
     Move                         ttMove;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;

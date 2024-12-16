@@ -519,6 +519,9 @@ void Search::Worker::clear() {
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
                     h->fill(-645);
+    // fill positionHistory with 0: POSITION_HISTORY_SIZE
+    for (auto& h : positionHistory)
+				h->fill(0);
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((19.43 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
@@ -776,6 +779,8 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
+    ss->positionHistory = nullptr;
+
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the
     // search suggests we cannot exceed alpha, return a speculative fail low.
@@ -851,6 +856,10 @@ Value Search::Worker::search(
     // or by 1 if there is a ttMove with an upper bound.
     if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
         depth -= 1 + !ttData.move;
+
+    // Instantiate position history for low plies
+    if (ss->ply <= 2)
+        ss->positionHistory = &thisThread->positionHistory[position_history_index(pos)];
 
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search
@@ -936,9 +945,12 @@ moves_loop:  // When in check, search starts here
                                         nullptr,
                                         (ss - 6)->continuationHistory};
 
+    const PieceToHistory* posHist[] = {ss->positionHistory, (ss - 1)->positionHistory};
+
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
-                  &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+                  &thisThread->captureHistory, contHist, posHist, &thisThread->pawnHistory,
+                  ss->ply);
 
     value = bestValue;
 
@@ -1590,7 +1602,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &thisThread->mainHistory, &thisThread->lowPlyHistory,
-                  &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+                  &thisThread->captureHistory, contHist, nullptr, &thisThread->pawnHistory,
+                  ss->ply);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1849,6 +1862,13 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
             break;
         if (((ss - i)->currentMove).is_ok())
             (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + (i == 3));
+    }
+
+    for (int i : {0, 1})
+    {
+        // check is there is a position history for that ply
+        if ((ss - i)->positionHistory)
+            (*(ss - i)->positionHistory)[pc][to] << bonus;
     }
 }
 

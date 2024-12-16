@@ -85,6 +85,7 @@ MovePicker::MovePicker(const Position&              p,
                        const LowPlyHistory*         lph,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
+                       const PieceToHistory**       posh,
                        const PawnHistory*           ph,
                        int                          pl) :
     pos(p),
@@ -92,6 +93,7 @@ MovePicker::MovePicker(const Position&              p,
     lowPlyHistory(lph),
     captureHistory(cph),
     continuationHistory(ch),
+  positionHistory(posh),
     pawnHistory(ph),
     ttMove(ttm),
     depth(d),
@@ -163,6 +165,17 @@ void MovePicker::score() {
             m.value += (*continuationHistory[2])[pc][to];
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
+
+            if (positionHistory)
+            {
+                for (int i = 0; i < 2; ++i)
+                {
+                    if (positionHistory[i])
+                        m.value += (*positionHistory[i])[pc][to];
+                }
+            }
+
+
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;

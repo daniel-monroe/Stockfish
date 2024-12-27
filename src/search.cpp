@@ -1161,6 +1161,11 @@ moves_loop:  // When in check, search starts here
 
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
 
+        if (ttData.lmcDepth >= ttData.depth) // recent ttmove change
+        {
+          r -= 500;
+        }
+
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
             r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;

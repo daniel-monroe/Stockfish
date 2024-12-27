@@ -52,7 +52,7 @@ struct TTEntry {
     TTData read() const {
         return TTData{Move(move16),           Value(value16),
                       Value(eval16),          Depth(depth8 + DEPTH_ENTRY_OFFSET),
-                      Bound(genBound8 & 0x3), bool(genBound8 & 0x4)};
+          Bound(genBound8 & 0x3), bool(genBound8 & 0x4), Depth(lmcDepth8 + DEPTH_ENTRY_OFFSET)};
     }
 
     bool is_occupied() const;
@@ -69,6 +69,7 @@ struct TTEntry {
     Move     move16;
     int16_t  value16;
     int16_t  eval16;
+    uint8_t  lmcDepth8;
 };
 
 // `genBound8` is where most of the details are. We use the following constants to manipulate 5 leading generation bits
@@ -93,6 +94,10 @@ bool TTEntry::is_occupied() const { return bool(depth8); }
 void TTEntry::save(
   Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
 
+
+    
+    
+
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
         move16 = m;
@@ -110,7 +115,14 @@ void TTEntry::save(
         value16   = int16_t(v);
         eval16    = int16_t(ev);
     }
+
+    if (m != move16)
+    {
+        lmcDepth8 = std::max(lmcDepth8, depth8);
+    }
 }
+
+
 
 
 uint8_t TTEntry::relative_age(const uint8_t generation8) const {
@@ -137,11 +149,11 @@ void TTWriter::write(
 // of TTEntry. Each non-empty TTEntry contains information on exactly one position. The size of a Cluster should
 // divide the size of a cache line for best performance, as the cacheline is prefetched when possible.
 
-static constexpr int ClusterSize = 3;
+static constexpr int ClusterSize = 2;
 
 struct Cluster {
     TTEntry entry[ClusterSize];
-    char    padding[2];  // Pad to 32 bytes
+    char    padding[8];  // Pad to 32 bytes
 };
 
 static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");

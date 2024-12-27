@@ -1157,9 +1157,21 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
+
+
         r += 330;
 
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
+
+        if (ttData.move && moveCount > 1 && !ss->inCheck && !(bestMove && pos.capture(bestMove))
+            && ((bestValue < ss->staticEval
+                 && bestValue < beta)                          // negative correction & no fail high
+                || (bestValue > ss->staticEval && bestMove)))  // positive correction & no fail low
+        {
+          // reduction based on the magnitude in difference between bestvalue and static eval
+          r += 100 - std::min(std::abs(bestValue - unadjustedStaticEval), 1024);
+        
+        }
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)

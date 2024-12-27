@@ -92,6 +92,7 @@ int correction_value(const Worker& w, const Position& pos, Stack* ss) {
     return (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + 5880 * cntcv);
 }
 
+
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(Value v, const int cv) {
@@ -507,6 +508,7 @@ void Search::Worker::clear() {
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
+    errorHistory.fill(0);
 
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
@@ -714,6 +716,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*thisThread, pos, ss);
+    const int  errorValue = thisThread->errorHistory[us][pawn_structure_index<Correction>(pos)];
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -1161,6 +1164,8 @@ moves_loop:  // When in check, search starts here
 
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
 
+        r += 200 - std::clamp(errorValue, 0, 1024);
+
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
             r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
@@ -1448,6 +1453,12 @@ moves_loop:  // When in check, search starts here
           << bonus * nonPawnWeight / 128;
         thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
           << bonus * nonPawnWeight / 128;
+
+        // the error is equal to the absolute difference btw bestvalue and unadjustedStaticEval, minus the current value
+        thisThread->errorHistory[us][pawn_structure_index<Correction>(pos)]
+          << (std::abs(bestValue - unadjustedStaticEval)
+              - thisThread->errorHistory[us][pawn_structure_index<Correction>(pos)])
+               * std::clamp(depth, 1, 4) / 8;
 
         if (m.is_ok())
             (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;

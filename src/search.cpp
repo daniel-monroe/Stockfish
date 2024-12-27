@@ -1169,7 +1169,7 @@ moves_loop:  // When in check, search starts here
                 || (bestValue > ss->staticEval && bestMove)))  // positive correction & no fail low
         {
           // reduction  based on the magnitude in difference between bestvalue and static eval
-          r += 100 - std::min(std::abs(bestValue - unadjustedStaticEval), 1024);
+          r += 250 - std::min(std::abs(bestValue - unadjustedStaticEval), 1024);
         
         }
 

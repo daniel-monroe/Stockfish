@@ -1164,7 +1164,7 @@ moves_loop:  // When in check, search starts here
 
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
 
-        r += 200 - std::clamp(errorValue, 0, 1024);
+        r += 200 - std::clamp(4 * errorValue, 0, 1024);
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)

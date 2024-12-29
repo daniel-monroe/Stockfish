@@ -988,7 +988,7 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
-            if (moveCount >= futility_move_count(improving, depth))
+            if (moveCount >= futility_move_count(improving, depth) / (1 + ttCapture))
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search

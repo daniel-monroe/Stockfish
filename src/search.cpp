@@ -1003,7 +1003,8 @@ moves_loop:  // When in check, search starts here
                 // Futility pruning for captures (~2 Elo)
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
                 {
-                    Value futilityValue = ss->staticEval + 287 + 253 * lmrDepth
+                    Value futilityValue = ss->staticEval + std::abs(correctionValue) / 131072 - 40
+                                        + 287 + 253 * lmrDepth
                                         + PieceValue[capturedPiece] + captHist / 7;
                     if (futilityValue <= alpha)
                         continue;
@@ -1029,8 +1030,8 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3609;
 
-                Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth;
+                Value futilityValue = ss->staticEval + std::abs(correctionValue) / 131072 - 40
+                                    + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth;
 
                 // Futility pruning: parent node (~13 Elo)
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
@@ -1575,7 +1576,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         if (bestValue > alpha)
             alpha = bestValue;
 
-        futilityBase = ss->staticEval + 306;
+        futilityBase = ss->staticEval + 306 + std::abs(correctionValue) / 131072 - 40;
     }
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,

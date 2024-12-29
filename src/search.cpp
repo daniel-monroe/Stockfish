@@ -925,7 +925,7 @@ moves_loop:  // When in check, search starts here
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutBeta;
 
-    Value probCutAlpha = alpha - 417;
+    Value probCutAlpha = alpha - 700;
     if ((ttData.bound & BOUND_UPPER) && ttData.depth >= depth - 4 && ttData.value <= probCutAlpha
         && !is_decisive(alpha) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutAlpha;

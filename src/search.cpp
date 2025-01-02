@@ -1248,7 +1248,7 @@ moves_loop:  // When in check, search starts here
 
             if (extension == -3 && value < alpha)
             {
-              value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth + 3, false);
+              value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth + 2, false);
             }
         }
 

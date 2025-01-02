@@ -992,7 +992,7 @@ moves_loop:  // When in check, search starts here
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search
-            int lmrDepth = newDepth - r / 1024;
+            int lmrDepth = newDepth * 1024 - r;
 
             if (capture || givesCheck)
             {
@@ -1001,9 +1001,9 @@ moves_loop:  // When in check, search starts here
                   thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
 
                 // Futility pruning for captures (~2 Elo)
-                if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
+                if (!givesCheck && lmrDepth / 1024 < 7 && !ss->inCheck)
                 {
-                    Value futilityValue = ss->staticEval + 287 + 253 * lmrDepth
+                    Value futilityValue = ss->staticEval + 287 + 253 * lmrDepth / 1024
                                         + PieceValue[capturedPiece] + captHist / 7;
                     if (futilityValue <= alpha)
                         continue;
@@ -1027,13 +1027,13 @@ moves_loop:  // When in check, search starts here
 
                 history += 2 * thisThread->mainHistory[us][move.from_to()];
 
-                lmrDepth += history / 3609;
+                lmrDepth += history * 1024 / 3609;
 
                 Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth;
+                  ss->staticEval + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth / 1024;
 
                 // Futility pruning: parent node (~13 Elo)
-                if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
+                if (!ss->inCheck && lmrDepth / 1024 < 12 && futilityValue <= alpha)
                 {
                     if (bestValue <= futilityValue && !is_decisive(bestValue)
                         && !is_win(futilityValue))
@@ -1044,7 +1044,7 @@ moves_loop:  // When in check, search starts here
                 lmrDepth = std::max(lmrDepth, 0);
 
                 // Prune moves with negative SEE (~4 Elo)
-                if (!pos.see_ge(move, -25 * lmrDepth * lmrDepth))
+                if (!pos.see_ge(move, -25 * (lmrDepth / 1024) * (lmrDepth / 1024)))
                     continue;
             }
         }

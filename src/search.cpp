@@ -1096,24 +1096,41 @@ moves_loop:  // When in check, search starts here
                 // over the original beta, we assume this expected cut-node is not
                 // singular (multiple moves fail high), and we can prune the whole
                 // subtree by returning a softbound.
-                else if (value >= beta && !is_decisive(value))
-                    return value;
+                else
+                {
 
-                // Negative extensions
-                // If other moves failed high over (ttValue - margin) without the
-                // ttMove on a reduced search, but we cannot do multi-cut because
-                // (ttValue - margin) is lower than the original beta, we do not know
-                // if the ttMove is singular or can do a multi-cut, so we reduce the
-                // ttMove in favor of other moves based on some conditions:
+                    if (value >= beta && !is_decisive(value))
+                    {
+                        if (depth < 10)
+                            return value;
+                        else
+                        {
+                            ss->excludedMove = move;
+                            value = search<NonPV>(pos, ss, beta - 1, beta,
+                                                  newDepth * 3 / 4, cutNode);
+                            ss->excludedMove = Move::none();
+                            if (value >= beta && !is_decisive(value))
+                                return value;
+                        }
+                    }
 
-                // If the ttMove is assumed to fail high over current beta (~7 Elo)
-                else if (ttData.value >= beta)
-                    extension = -3;
 
-                // If we are on a cutNode but the ttMove is not assumed to fail high
-                // over current beta (~1 Elo)
-                else if (cutNode)
-                    extension = -2;
+                    // Negative extensions
+                    // If other moves failed high over (ttValue - margin) without the
+                    // ttMove on a reduced search, but we cannot do multi-cut because
+                    // (ttValue - margin) is lower than the original beta, we do not know
+                    // if the ttMove is singular or can do a multi-cut, so we reduce the
+                    // ttMove in favor of other moves based on some conditions:
+
+                    // If the ttMove is assumed to fail high over current beta (~7 Elo)
+                    if (ttData.value >= beta)
+                        extension = -3;
+
+                    // If we are on a cutNode but the ttMove is not assumed to fail high
+                    // over current beta (~1 Elo)
+                    else if (cutNode)
+                        extension = -2;
+                }
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)

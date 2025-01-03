@@ -568,6 +568,7 @@ Value Search::Worker::search(
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     Piece movedPiece;
+    bool  m3ext = false;
 
     ValueList<Move, 32> capturesSearched;
     ValueList<Move, 32> quietsSearched;
@@ -1108,7 +1109,10 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttData.value >= beta)
+                {
                     extension = -3;
+                    m3ext     = true;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high
                 // over current beta (~1 Elo)
@@ -1360,6 +1364,57 @@ moves_loop:  // When in check, search starts here
     // All legal moves have been searched and if there are no legal moves, it
     // must be a mate or a stalemate. If we are in a singular extension search then
     // return a fail low score.
+
+    if (m3ext and bestValue <= alpha)
+    {
+        // if the ttmove was "unextended" and we still failed low we do a full depth search for ttmove
+
+        move       = ttData.move;
+        capture    = pos.capture_stage(move);
+        movedPiece = pos.moved_piece(move);
+        givesCheck = pos.gives_check(move);
+        thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+        newDepth = depth - 1;
+        pos.do_move(move, st, givesCheck);
+
+        // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
+        if (!PvNode)
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+        else
+        {
+            (ss + 1)->pv    = pv;
+            (ss + 1)->pv[0] = Move::none();
+
+            // Extend move from transposition table if we are about to dive into qsearch.
+            if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
+                newDepth = std::max(newDepth, 1);
+
+            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+        }
+        if (value > bestValue)
+        {
+            bestValue = value;
+
+            if (value > alpha)
+            {
+                bestMove = move;
+
+                if (PvNode && !rootNode)  // Update pv even in fail-high case
+                    update_pv(ss->pv, move, (ss + 1)->pv);
+
+                if (value < beta)
+                {
+                    assert(depth > 0);
+                    alpha = value;  // Update alpha! Always alpha < beta
+                }
+            }
+        }
+        pos.undo_move(move);
+    }
+
+    // For PV nodes only, do a full PV search on the first move or after a fail high,
+    // otherwise let the parent node fail low with value <= alpha and try another move.
+
 
     assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
 

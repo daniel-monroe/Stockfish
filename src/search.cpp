@@ -1117,10 +1117,12 @@ moves_loop:  // When in check, search starts here
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
-            else if (PvNode && ((ttCapture && move == ttData.move) || (move.to_sq() == prevSq
-                     && (thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
-                          > 4321))))
+            else if (PvNode
+                     && ((ttCapture && move == ttData.move && pos.see_ge(move, 100))
+                         || (move.to_sq() == prevSq
+                             && thisThread->captureHistory[movedPiece][move.to_sq()]
+                                                           [type_of(pos.piece_on(move.to_sq()))]
+                                 > 4321)))
                 extension = 1;
         }
 

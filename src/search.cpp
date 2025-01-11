@@ -835,6 +835,13 @@ Value Search::Worker::search(
         }
     }
 
+
+    // unexpectedly good opponent move
+    if ((ss - 1)->moveCount > 8 && ss->staticEval + (ss - 1)->staticEval < -100 && !PvNode)
+    {
+        depth++;
+    }
+
     // Step 10. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth.
     if (PvNode && !ttData.move)

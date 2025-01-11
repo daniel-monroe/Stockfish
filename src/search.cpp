@@ -1207,8 +1207,7 @@ moves_loop:  // When in check, search starts here
             if (r >= 0)
                 d = newDepth - r / 1024;
             else
-                d = newDepth + (!allNode && r <= -1024) + (PvNode && !bestMove && r <= -2048)
-                  + (PvNode && !bestMove && r <= -3072);
+                d = newDepth + (!allNode && r <= -1024) + (PvNode && !bestMove && r <= -3072);
             
               
             d = std::max(1, d);

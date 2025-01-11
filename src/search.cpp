@@ -578,6 +578,7 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->confusion      = -1;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -833,6 +834,11 @@ Value Search::Worker::search(
             if (v >= beta)
                 return nullValue;
         }
+    }
+
+    if ((ss - 1)->moveCount == 1 && !ss->inCheck && !(ss-1)->inCheck)
+    {
+      (ss-1)->confusion = std::abs(ss->staticEval + (ss - 1)->staticEval);
     }
 
     // Step 10. Internal iterative reductions (~9 Elo)
@@ -1161,6 +1167,9 @@ moves_loop:  // When in check, search starts here
         r += 330;
 
         r -= std::abs(correctionValue) / 32768;
+
+        if (ss->confusion >= 0)
+            r += 50 - std::clamp(ss->confusion, 0, 500);
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)

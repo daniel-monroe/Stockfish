@@ -1150,7 +1150,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
-            r -= 1037 + (ttData.value > alpha) * 965 + (ttData.depth >= depth) * 960;
+            r -= 1037 + (ttData.value > alpha) * 965 + (ttData.depth >= depth && !cutNode) * 960;
 
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
@@ -1158,13 +1158,11 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 307;
-
-        r -= std::abs(correctionValue) / 34112;
+        r += 307 - std::abs(correctionValue) / 34112;
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2355 - (ttData.depth >= depth && ss->ttPv) * 1141;
+            r += 2355;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)

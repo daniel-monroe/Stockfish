@@ -1162,7 +1162,7 @@ moves_loop:  // When in check, search starts here
 
         r -= std::abs(correctionValue) / 32768;
 
-        r -= std::clamp(ss->staticEval - beta, 0, 256);
+        r -= std::clamp(ss->staticEval - beta, 0, 256) * 2048 / 1024;
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)

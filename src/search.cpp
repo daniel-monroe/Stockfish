@@ -534,6 +534,16 @@ Value Search::Worker::search(
     constexpr bool rootNode = nodeType == Root;
     const bool     allNode  = !(PvNode || cutNode);
 
+    
+    if ((ss - 1)->reducing)
+    {
+        assert(false);
+        depth =
+          std::max(1, std::min(depth - (ss - 1)->reduction / 1024, (ss - 1)->maxReducedDepth));
+        ss->reducedDepth = depth;
+    }
+
+
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
     {
@@ -578,6 +588,7 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->reducing       = false;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -628,6 +639,7 @@ Value Search::Worker::search(
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -1192,13 +1204,18 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-            Depth d = std::max(
-              1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+
+
+            ss->reducing = true;
+            ss->reduction = r;
+            ss->maxReducedDepth = newDepth + !allNode + (PvNode && !bestMove);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, true);
+            ss->reducing        = false;
+
 
             // Do a full-depth search when reduced LMR search fails high
-            if (value > alpha && d < newDepth)
+            if (value > alpha && (ss+1)->reducedDepth < newDepth)
             {
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
@@ -1207,7 +1224,7 @@ moves_loop:  // When in check, search starts here
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
-                if (newDepth > d)
+                if (newDepth > (ss+1)->reducedDepth)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                 // Post LMR continuation history updates (~1 Elo)

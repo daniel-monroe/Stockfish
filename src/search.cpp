@@ -853,7 +853,7 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 187 - 56 * improving;
-    if (!PvNode && depth > 3
+    if (!PvNode && depth >= 3
         && !is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
@@ -865,6 +865,8 @@ Value Search::Worker::search(
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Piece      captured;
+
+        Depth probCutDepth = std::max(depth - 4, 0);
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -898,9 +900,9 @@ Value Search::Worker::search(
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
             // If the qsearch held, perform the regular search
-            if (value >= probCutBeta)
-                value =
-                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+            if (value >= probCutBeta && probCutDepth > 0)
+                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
+                                       !cutNode);
 
             pos.undo_move(move);
 
@@ -910,7 +912,7 @@ Value Search::Worker::search(
 
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               depth - 3, move, unadjustedStaticEval, tt.generation());
+                               probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
                 return is_decisive(value) ? value : value - (probCutBeta - beta);
             }
         }

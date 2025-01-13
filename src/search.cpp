@@ -778,7 +778,7 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    depth = std::min(depth + std::max(priorReduction, 0), depth + !opponentWorsening);
+    depth = std::min(depth + std::max(priorReduction, 0), depth + ss->ttPv);
     
 
     // Step 7. Razoring (~1 Elo)

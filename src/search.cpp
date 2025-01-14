@@ -782,7 +782,8 @@ Value Search::Worker::search(
     {
         depth++;
     }
-    depth = std::min(depth + std::max(priorReduction, 0), depth + ss->ttPv);
+    if (priorReduction >= 2 && ss->ttPv)
+        depth++;
 
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the

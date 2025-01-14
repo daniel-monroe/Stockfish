@@ -782,6 +782,10 @@ Value Search::Worker::search(
     {
         depth++;
     }
+    if (priorReduction >= 4 && ss->staticEval + (ss - 1)->staticEval < -50)
+    {
+        depth++;
+    }
 
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the

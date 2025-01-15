@@ -74,6 +74,9 @@ struct Stack {
     bool                        ttPv;
     bool                        ttHit;
     int                         cutoffCnt;
+    Depth                       reduction;
+    bool                        reducing;
+    Depth                       virtualDepth;
 };
 
 

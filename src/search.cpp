@@ -1195,24 +1195,33 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
-
-            // Do a full-depth search when reduced LMR search fails high
-            if (value > alpha && d < newDepth)
+            if (d == newDepth + 2)
             {
-                // Adjust full-depth search based on LMR results - if the result was
-                // good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 40 + 2 * newDepth);  // (~1 Elo)
-                const bool doShallowerSearch = value < bestValue + 10;                   // (~2 Elo)
+                value = alpha + 1;
+            }
+            else
+            {
+                value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
-                newDepth += doDeeperSearch - doShallowerSearch;
+                // Do a full-depth search when reduced LMR search fails high
+                if (value > alpha && d < newDepth)
+                {
+                    // Adjust full-depth search based on LMR results - if the result was
+                    // good enough search deeper, if it was bad enough search shallower.
+                    const bool doDeeperSearch =
+                      value > (bestValue + 40 + 2 * newDepth);              // (~1 Elo)
+                    const bool doShallowerSearch = value < bestValue + 10;  // (~2 Elo)
 
-                if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    newDepth += doDeeperSearch - doShallowerSearch;
 
-                // Post LMR continuation history updates (~1 Elo)
-                int bonus = (value >= beta) * 2048;
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                    if (newDepth > d)
+                        value =
+                          -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                    // Post LMR continuation history updates (~1 Elo)
+                    int bonus = (value >= beta) * 2048;
+                    update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                }
             }
         }
 

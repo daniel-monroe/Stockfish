@@ -1113,6 +1113,14 @@ bool Position::see_ge(Move m, int threshold) const {
     Bitboard attackers = attackers_to(to, occupied);
     Bitboard stmAttackers, bb;
     int      res = 1;
+    
+    // discovered check
+
+    if (blockers_for_king(~sideToMove) & from)
+       if (!aligned(from, to, square<KING>(~sideToMove)) || m.type_of() == CASTLING)
+       		if (threshold <= 0)
+            return true;
+
 
     while (true)
     {

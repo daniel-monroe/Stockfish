@@ -783,7 +783,7 @@ Value Search::Worker::search(
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 14
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-             - 500 * (ttData.move && !ttCapture) 
+             - 300 * (ttData.move && !ttCapture) 
                - (ss - 1)->statScore / 310
                + (ss->staticEval == eval) * (40 - std::abs(correctionValue) / 131072)
              >= beta

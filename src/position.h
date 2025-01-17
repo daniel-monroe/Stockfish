@@ -137,6 +137,7 @@ class Position {
     bool  capture(Move m) const;
     bool  capture_stage(Move m) const;
     bool  gives_check(Move m) const;
+    bool  gives_discovered_check(Move m) const;
     Piece moved_piece(Move m) const;
     Piece captured_piece() const;
 

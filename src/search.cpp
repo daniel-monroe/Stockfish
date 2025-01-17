@@ -906,13 +906,58 @@ Value Search::Worker::search(
         }
     }
 
-moves_loop:  // When in check, search starts here
+moves_loop:  // When in check, search starts herez
 
     // Step 12. A small Probcut idea (~4 Elo)
     probCutBeta = beta + 412;
     if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
-        && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
+        && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value) && !ttCapture)
         return probCutBeta;
+
+
+    // another probcut idea, we allow a smaller search to give an early cutoff
+    probCutBeta = beta + 150;
+    if ((ttData.bound & BOUND_LOWER) && depth > 3 && ttData.depth >= depth - 4
+        && ttData.value >= probCutBeta && !is_decisive(beta) && is_valid(ttData.value)
+        && !is_decisive(ttData.value) && ttData.move && ttData.move != excludedMove)
+    {
+
+        assert(move.is_ok());
+        // Prefetch the TT entry for the resulting position
+        prefetch(tt.first_entry(pos.key_after(ttData.move)));
+        ss->currentMove = ttData.move;
+        ss->continuationHistory =
+          &this->continuationHistory[ss->inCheck][true][pos.moved_piece(ttData.move)]
+                                    [ttData.move.to_sq()];
+        ss->continuationCorrectionHistory =
+          &this->continuationCorrectionHistory[pos.moved_piece(ttData.move)][ttData.move.to_sq()];
+
+        thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+        pos.do_move(ttData.move, st);
+
+        // Perform a preliminary qsearch to verify that the move holds
+        value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+
+        // If the qsearch held, perform the regular search
+        if (value >= probCutBeta)
+            value =
+              -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+
+        pos.undo_move(ttData.move);
+
+        if (value >= probCutBeta)
+        {
+            // Save ProbCut data into transposition table
+            ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3,
+                           ttData.move, unadjustedStaticEval, tt.generation());
+
+            if (!is_decisive(value))
+                return value - (probCutBeta - beta);
+        }
+    }
+
+
+
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory,

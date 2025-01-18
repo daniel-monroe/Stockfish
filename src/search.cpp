@@ -778,7 +778,8 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    if (priorReduction >= 3 && !opponentWorsening) depth++;
+    if (priorReduction >= 3 && !opponentWorsening && !priorCapture && !(ss - 1)->inCheck)
+        depth++;
 
 
     // Step 7. Razoring (~1 Elo)

@@ -1203,7 +1203,7 @@ moves_loop:  // When in check, search starts here
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
                 const bool doDeeperSearch    = value > (bestValue + 40 + 2 * newDepth);  // (~1 Elo)
-                const bool doShallowerSearch = value < bestValue + 10;                   // (~2 Elo)
+                const bool doShallowerSearch = value < bestValue + 14 - 2 * (newDepth - d);          // (~2 Elo)
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
@@ -2140,7 +2140,7 @@ void SearchManager::pv(Search::Worker&           worker,
 // We try hard to have a ponder move to return to the GUI,
 // otherwise in case of 'ponder on' we have nothing to think about.
 bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& pos) {
-
+  
     StateInfo st;
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 

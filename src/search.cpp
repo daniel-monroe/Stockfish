@@ -1102,7 +1102,19 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttData.value >= beta)
-                    extension = -3;
+                {
+                  // try to secure a multi-cut
+                  if (depth >= 10 && singularBeta > beta + 50)
+                  {
+                      ss->excludedMove = move;
+                      value = search<NonPV>(pos, ss, beta - 1, beta, singularDepth,
+                                            cutNode);
+                      ss->excludedMove = Move::none();
+                      if (value >= beta && !is_decisive(value))
+                          return value;
+                  }
+                  extension = -3;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high
                 // over current beta (~1 Elo)

@@ -572,7 +572,7 @@ Value Search::Worker::search(
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
-    bool  givesCheck, improving, priorCapture, opponentWorsening;
+    bool  givesCheck, improving, priorCapture, opponentWorsening, givesDiscoveredCheck;
     bool  capture, ttCapture;
     int   priorReduction = ss->reduction;
     ss->reduction        = 0;
@@ -967,10 +967,12 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
-        extension  = 0;
-        capture    = pos.capture_stage(move);
-        movedPiece = pos.moved_piece(move);
-        givesCheck = pos.gives_check(move);
+        extension            = 0;
+        capture              = pos.capture_stage(move);
+        movedPiece           = pos.moved_piece(move);
+        givesCheck           = pos.gives_check(move);
+        givesDiscoveredCheck = givesCheck ? pos.gives_discovered_check(move) : false;
+
 
         // Calculate new depth for this move
         newDepth = depth - 1;
@@ -1011,7 +1013,7 @@ moves_loop:  // When in check, search starts here
 
                 // SEE based pruning for captures and checks (~11 Elo)
                 int seeHist = std::clamp(captHist / 37, -152 * depth, 141 * depth);
-                if (!pos.see_ge(move, -156 * depth - seeHist))
+                if (!givesDiscoveredCheck && !pos.see_ge(move, -156 * depth - seeHist))
                     continue;
             }
             else
@@ -1044,7 +1046,7 @@ moves_loop:  // When in check, search starts here
                 lmrDepth = std::max(lmrDepth, 0);
 
                 // Prune moves with negative SEE (~4 Elo)
-                if (!pos.see_ge(move, -25 * lmrDepth * lmrDepth))
+                if (!givesDiscoveredCheck && !pos.see_ge(move, -25 * lmrDepth * lmrDepth))
                     continue;
             }
         }

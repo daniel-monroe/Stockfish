@@ -784,6 +784,9 @@ Value Search::Worker::search(
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
 
+    if (priorReduction >= 3 && correctionValue / 131072 <= -100)
+        depth++;
+
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, skip search entirely and return the qsearch value.
     // For PvNodes, we must have a guard against mates being returned.

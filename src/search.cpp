@@ -1161,6 +1161,8 @@ moves_loop:  // When in check, search starts here
 
         r -= std::abs(correctionValue) / 34112;
 
+        r -= 1024 * givesDiscoveredCheck;
+
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
             r += 2355 - (ttData.depth >= depth && ss->ttPv) * 1141;
@@ -1493,7 +1495,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Key   posKey;
     Move  move, bestMove;
     Value bestValue, value, futilityBase;
-    bool  pvHit, givesCheck, capture, givesDiscoveredCheck;
+    bool  pvHit, givesCheck, capture;
     int   moveCount;
     Color us = pos.side_to_move();
 
@@ -1604,7 +1606,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
         givesCheck = pos.gives_check(move);
         capture    = pos.capture_stage(move);
-        givesDiscoveredCheck = givesCheck ? pos.gives_discovered_check(move) : false;
 
         moveCount++;
 
@@ -1630,7 +1631,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
                 // If static exchange evaluation is low enough
                 // we can prune this move. (~2 Elo)
-                if (!givesDiscoveredCheck && !pos.see_ge(move, alpha - futilityBase))
+                if (!pos.see_ge(move, alpha - futilityBase))
                 {
                     bestValue = std::min(alpha, futilityBase);
                     continue;
@@ -1647,7 +1648,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 continue;
 
             // Do not search moves with bad enough SEE values (~5 Elo)
-            if (!givesDiscoveredCheck && !pos.see_ge(move, -80))
+            if (!pos.see_ge(move, -80))
                 continue;
         }
 

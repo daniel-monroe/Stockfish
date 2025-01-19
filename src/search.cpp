@@ -1157,7 +1157,7 @@ moves_loop:  // When in check, search starts here
 
         r += 307;
 
-        r -= std::abs(correctionValue) / 34112;
+        r -= std::max(correctionValue, 0) / 34112;
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)

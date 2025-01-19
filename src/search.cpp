@@ -1387,6 +1387,7 @@ moves_loop:  // When in check, search starts here
     {
         int bonusScale = (118 * (depth > 5) + 37 * !allNode + 169 * ((ss - 1)->moveCount > 8)
                           + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
+                          + 100 * (!ss->inCheck && bestValue <= ss->staticEval - 300)
                           + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82));
 
         // Proportional to "how much damage we have to undo"

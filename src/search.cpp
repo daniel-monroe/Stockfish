@@ -661,6 +661,38 @@ Value Search::Worker::search(
                                               -stat_malus(depth + 1) * 1042 / 1024);
         }
 
+        const auto correctionValue = correction_value(*thisThread, pos, ss);
+
+
+        bestMove = ttData.move;
+        bestValue = ttData.value;
+
+        Value unadjustedStaticEval = ttData.eval;
+        if (!is_valid(unadjustedStaticEval))
+            ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        // Adjust correction history
+        if (!is_valid(unadjustedStaticEval) && !ss->inCheck && !(bestMove && pos.capture(bestMove))
+            && ((bestValue < ss->staticEval && bestValue < beta)  // negative correction & no fail high
+                || (bestValue > ss->staticEval && bestMove)))     // positive correction & no fail low
+        {
+            const auto    m             = (ss - 1)->currentMove;
+            constexpr int nonPawnWeight = 165;
+
+            auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
+                                    -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+            thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
+              << bonus * 114 / 128;
+            thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 163 / 128;
+            thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 146 / 128;
+            thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
+              << bonus * nonPawnWeight / 128;
+            thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
+              << bonus * nonPawnWeight / 128;
+
+            if (m.is_ok())
+                (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
+        }
+
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)

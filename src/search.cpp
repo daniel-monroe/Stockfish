@@ -249,12 +249,14 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->reduction                     = 0;
+        (ss - i)->failedNmp                     = false;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
         (ss + i)->ply       = i;
         (ss + i)->reduction = 0;
+        (ss + i)->failedNmp = false;
     }
 
     ss->pv = pv;
@@ -631,6 +633,7 @@ Value Search::Worker::search(
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
+    ss->failedNmp = false;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
                  : ttHit    ? ttData.move
                             : Move::none();
@@ -803,7 +806,8 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 20 * depth + 440 && !excludedMove && pos.non_pawn_material(us)
+        && ss->staticEval >= beta - 20 * depth + 440 + 100 * (ss-2)->failedNmp && !excludedMove
+        && pos.non_pawn_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
         assert(eval - beta >= 0);
@@ -840,6 +844,7 @@ Value Search::Worker::search(
             if (v >= beta)
                 return nullValue;
         }
+        ss->failedNmp = true;
     }
 
     // Step 10. Internal iterative reductions (~9 Elo)

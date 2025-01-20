@@ -250,6 +250,7 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->reduction                     = 0;
         (ss - i)->failedNmp                     = false;
+        (ss - i)->capturedPiece                 = NO_PIECE;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -257,6 +258,7 @@ void Search::Worker::iterative_deepening() {
         (ss + i)->ply       = i;
         (ss + i)->reduction = 0;
         (ss + i)->failedNmp = false;
+        (ss + i)->capturedPiece = NO_PIECE;
     }
 
     ss->pv = pv;
@@ -591,6 +593,7 @@ Value Search::Worker::search(
     ss->moveCount      = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
+    ss->capturedPiece  = pos.captured_piece();
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -806,7 +809,7 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 20 * depth + 440 + 200 * (ss-2)->failedNmp && !excludedMove
+        && ss->staticEval >= beta - 20 * depth + 440 - 150 * (bool) (ss-1)->capturedPiece && !excludedMove
         && pos.non_pawn_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {

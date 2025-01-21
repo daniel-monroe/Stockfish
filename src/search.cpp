@@ -722,6 +722,8 @@ Value Search::Worker::search(
 
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
+    Value simpleEval           = PawnValue * (pos.count<PAWN>(us) - pos.count<PAWN>(~us))
+                     + (pos.non_pawn_material(us) - pos.non_pawn_material(~us));
     const auto correctionValue      = correction_value(*thisThread, pos, ss);
     if (ss->inCheck)
     {
@@ -1155,9 +1157,15 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 307;
+        r += 407;
 
         r -= std::abs(correctionValue) / 34112;
+
+        // if simpleEval and unadjusted staticeval disagree by a lot decrease reduction
+        if (simpleEval * unadjustedStaticEval < 0)
+        {
+            r -= std::clamp(std::abs(simpleEval - unadjustedStaticEval) - 300, 0, 1024);
+        }
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
@@ -1728,10 +1736,12 @@ TimePoint Search::Worker::elapsed() const {
 
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Search::Worker::evaluate(const Position& pos) {
+Value Search::Worker::evaluate(const Position& pos) { 
     return Eval::evaluate(networks[numaAccessToken], pos, refreshTable,
                           optimism[pos.side_to_move()]);
 }
+
+
 
 namespace {
 // Adjusts a mate or TB score from "plies to mate from the root" to

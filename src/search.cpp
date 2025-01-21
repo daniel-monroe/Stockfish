@@ -1232,10 +1232,13 @@ moves_loop:  // When in check, search starts here
             // Increase reduction if ttMove is not present (~6 Elo)
             if (!ttData.move)
                 r += 2111;
+            Depth noLmrDepth = newDepth - (r > 3444);
+            if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
+                noLmrDepth = std::max(noLmrDepth, 1);
+
 
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
-            value =
-              -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3444), !cutNode);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, noLmrDepth, !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,

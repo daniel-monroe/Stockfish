@@ -1113,7 +1113,7 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttData.value >= beta)
-                    extension = -3;
+                    extension = -4;
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high
                 // over current beta (~1 Elo)
@@ -1250,6 +1250,12 @@ moves_loop:  // When in check, search starts here
                 newDepth = std::max(newDepth, 1);
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            if (extension == -4 && value <= alpha)
+            {
+              value = -search<PV>(pos, ss + 1, -beta, -alpha, depth - 1, false);
+            }
+
+
         }
 
         // Step 19. Undo move

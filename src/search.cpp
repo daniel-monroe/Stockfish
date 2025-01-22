@@ -1029,6 +1029,8 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3459;
 
+                lmrDepth -= 2 * ttCapture;
+
                 Value futilityValue =
                   ss->staticEval + (bestValue < ss->staticEval - 47 ? 137 : 47) + 142 * lmrDepth;
 

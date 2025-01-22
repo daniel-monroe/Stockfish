@@ -1069,7 +1069,7 @@ moves_loop:  // When in check, search starts here
             if (!rootNode && move == ttData.move && !excludedMove
                 && depth >= 5 - (thisThread->completedDepth > 33) + ss->ttPv
                 && is_valid(ttData.value) && !is_decisive(ttData.value)
-                && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
+                && (ttData.bound & BOUND_LOWER || ttData.value >= beta) && ttData.depth >= depth - 3)
             {
                 Value singularBeta  = ttData.value - (52 + 74 * (ss->ttPv && !PvNode)) * depth / 64;
                 Depth singularDepth = newDepth / 2;

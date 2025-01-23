@@ -1610,7 +1610,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             // Futility pruning and moveCount pruning (~10 Elo)
             if (!givesCheck && move.to_sq() != prevSq && !is_loss(futilityBase)
-                && move.type_of() != PROMOTION)
+                && move.type_of() != PROMOTION && move != ttData.move)
             {
                 if (moveCount > 2)
                     continue;

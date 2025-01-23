@@ -1577,7 +1577,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         if (bestValue > alpha)
             alpha = bestValue;
 
-        futilityBase = ss->staticEval + 301;
+        futilityBase = ss->staticEval + 301 - 40 + std::abs(correctionValue) / 131072;
     }
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,

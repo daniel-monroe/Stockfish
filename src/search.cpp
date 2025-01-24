@@ -119,6 +119,8 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
+                      ValueList<Depth, 32>& quietDepthsSearched,
+                      ValueList<Depth, 32>& captureDepthsSearched,
                       Depth                depth,
                       bool                 isTTMove);
 
@@ -581,6 +583,9 @@ Value Search::Worker::search(
     ValueList<Move, 32> capturesSearched;
     ValueList<Move, 32> quietsSearched;
 
+    ValueList<Depth, 32> capturesDepthsSearched;
+    ValueList<Depth, 32> quietsDepthsSearched;
+
     // Step 1. Initialize node
     Worker* thisThread = this;
     ss->inCheck        = pos.checkers();
@@ -974,10 +979,12 @@ moves_loop:  // When in check, search starts here
 
         // Calculate new depth for this move
         newDepth = depth - 1;
+        int minDepthSearched = newDepth;
 
         int delta = beta - alpha;
 
         Depth r = reduction(improving, depth, moveCount, delta);
+
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
@@ -1201,10 +1208,13 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
+            minDepthSearched = std::min(minDepthSearched, d);
+
             (ss + 1)->reduction = newDepth - d;
 
             value               = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             (ss + 1)->reduction = 0;
+
 
 
             // Do a full-depth search when reduced LMR search fails high
@@ -1233,10 +1243,12 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 2111;
 
+
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value =
               -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3444), !cutNode);
         }
+
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
         // otherwise let the parent node fail low with value <= alpha and try another move.
@@ -1251,6 +1263,8 @@ moves_loop:  // When in check, search starts here
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
+
+
 
         // Step 19. Undo move
         pos.undo_move(move);
@@ -1355,9 +1369,15 @@ moves_loop:  // When in check, search starts here
         if (move != bestMove && moveCount <= 32)
         {
             if (capture)
+            {
                 capturesSearched.push_back(move);
+                capturesDepthsSearched.push_back(minDepthSearched);
+            }
             else
+            {
                 quietsSearched.push_back(move);
+                quietsDepthsSearched.push_back(minDepthSearched);
+            }
         }
     }
 
@@ -1379,7 +1399,8 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
+        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched,
+                         quietsDepthsSearched, capturesDepthsSearched, depth,
                          bestMove == ttData.move);
 
     // Bonus for prior countermove that caused the fail low
@@ -1792,15 +1813,17 @@ void update_pv(Move* pv, Move move, const Move* childPv) {
 
 
 // Updates stats at the end of search() when a bestMove is found
-void update_all_stats(const Position&      pos,
-                      Stack*               ss,
-                      Search::Worker&      workerThread,
-                      Move                 bestMove,
-                      Square               prevSq,
-                      ValueList<Move, 32>& quietsSearched,
-                      ValueList<Move, 32>& capturesSearched,
-                      Depth                depth,
-                      bool                 isTTMove) {
+void update_all_stats(const Position&       pos,
+                      Stack*                ss,
+                      Search::Worker&       workerThread,
+                      Move                  bestMove,
+                      Square                prevSq,
+                      ValueList<Move, 32>&  quietsSearched,
+                      ValueList<Move, 32>&  capturesSearched,
+                      ValueList<Depth, 32>& quietDepthsSearched,
+                      ValueList<Depth, 32>& captureDepthsSearched,
+                      Depth                 depth,
+                      bool                  isTTMove) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
@@ -1813,9 +1836,23 @@ void update_all_stats(const Position&      pos,
     {
         update_quiet_histories(pos, ss, workerThread, bestMove, bonus * 1216 / 1024);
 
+
+        // Decrease stats for all non-best capture moves
+        auto it1 = quietsSearched.begin();
+        auto it2 = quietDepthsSearched.begin();
         // Decrease stats for all non-best quiet moves
-        for (Move move : quietsSearched)
-            update_quiet_histories(pos, ss, workerThread, move, -malus * 1062 / 1024);
+
+        while (it1 != quietsSearched.end() && it2 != quietDepthsSearched.end())
+        {
+            Move move   = *it1;
+            int  sdepth = *it2;
+
+            update_quiet_histories(pos, ss, workerThread, move,
+                                   -stat_malus(sdepth + 1) * 1062 / 1024);
+
+            ++it1;  // Advance both iterators
+            ++it2;
+        }
     }
     else
     {
@@ -1829,12 +1866,21 @@ void update_all_stats(const Position&      pos,
     if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -malus * 966 / 1024);
 
+
     // Decrease stats for all non-best capture moves
-    for (Move move : capturesSearched)
+    auto it1 = capturesSearched.begin();
+    auto it2 = captureDepthsSearched.begin();
+    while (it1 != capturesSearched.end() && it2 != captureDepthsSearched.end())
     {
+        Move move   = *it1;
+        int  sdepth = *it2;
+
         moved_piece = pos.moved_piece(move);
         captured    = type_of(pos.piece_on(move.to_sq()));
-        captureHistory[moved_piece][move.to_sq()][captured] << -malus * 1205 / 1024;
+        captureHistory[moved_piece][move.to_sq()][captured] << -stat_malus(sdepth + 1) * 1205 / 1024;
+
+        ++it1;  // Advance both iterators
+        ++it2;
     }
 }
 

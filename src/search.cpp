@@ -1081,6 +1081,13 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
+                    if (value >= beta && singularBeta > value + 100)
+                    {
+                        Value multicutValue =
+                          search<NonPV>(pos, ss, beta - 1, beta, singularDepth, cutNode);
+                        if (multicutValue >= beta && !is_decisive(multicutValue))
+                            return multicutValue;
+                    }
                     int corrValAdj   = std::abs(correctionValue) / 262144;
                     int doubleMargin = 249 * PvNode - 194 * !ttCapture - corrValAdj;
                     int tripleMargin =

@@ -1379,26 +1379,37 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonusScale = (118 * (depth > 5) + 37 * !allNode + 169 * ((ss - 1)->moveCount > 8)
-                          + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
-                          + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82)
-                          + 80 * ((ss - 1)->isTTMove));
 
-        // Proportional to "how much damage we have to undo"
-        bonusScale += std::min(-(ss - 1)->statScore / 106, 318);
+        int a1 = 174, a2 = 35, a3 = 142, a4 = 10, a5 = 113, a6 = 94, a7 = 136, a8 = 67, a9 = 97,
+            a10 = 334;
+        int b1 = 132, b2 = 34, b3 = 165, b4 = 7, b5 = 98, b6 = 82, b7 = 115, b8 = 69, b9 = 77,
+            b10 = 355;
+        int bonusScale, scaledBonus;
+        bonusScale = (a1 * (depth > 5) + a2 * !allNode + a3 * ((ss - 1)->moveCount > a4)
+                      + a5 * (!(ss->inCheck) && bestValue <= ss->staticEval - a6)
+                      + a7 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - a8)
+                      + std::min(-(ss - 1)->statScore / a9, a10) + 80 * ((ss - 1)->isTTMove));
 
-        bonusScale = std::max(bonusScale, 0);
+        scaledBonus = stat_bonus(depth) * std::max(bonusScale, 0);
 
-        const int scaledBonus = stat_bonus(depth) * bonusScale / 32;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      scaledBonus * 436 / 1024);
+                                      scaledBonus * 436 / 32768);
 
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << scaledBonus * 207 / 1024;
+        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+          << scaledBonus * 207 / 32768;
+
+        bonusScale = (b1 * (depth > 5) + b2 * !allNode + b3 * ((ss - 1)->moveCount > b4)
+                      + b5 * (!(ss->inCheck) && bestValue <= ss->staticEval - b6)
+                      + b7 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - b8)
+                      + std::min(-(ss - 1)->statScore / b9, b10) + 80 * ((ss - 1)->isTTMove));
+
+        scaledBonus = stat_bonus(depth) * std::max(bonusScale, 0);
+
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << scaledBonus * 1195 / 1024;
+              << scaledBonus * 1195 / 32768;
     }
 
     else if (priorCapture && prevSq != SQ_NONE)

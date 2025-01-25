@@ -64,6 +64,11 @@ using namespace Search;
 
 namespace {
 
+int a1 = 118, a2 = 37, a3 = 169, a4 = 8, a5 = 128, a6 = 102, a7 = 115, a8 = 82, a9 = 106, a10 = 318;
+int b1 = 118, b2 = 37, b3 = 169, b4 = 8, b5 = 128, b6 = 102, b7 = 115, b8 = 82, b9 = 106, b10 = 318;
+
+TUNE(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 112 - 26 * noTtCutNode;
@@ -1385,18 +1390,28 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        const int bonusScale = (118 * (depth > 5) + 37 * !allNode + 169 * ((ss - 1)->moveCount > 8)
-                          + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
-                          + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82)
-                          + std::min(-(ss - 1)->statScore / 106, 318));
+        int bonusScale, scaledBonus;
+        bonusScale = (a1 * (depth > 5) + a2 * !allNode + a3 * ((ss - 1)->moveCount > a4)
+									+ a5 * (!(ss->inCheck) && bestValue <= ss->staticEval - a6)
+									+ a7 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - a8)
+									+ std::min(-(ss - 1)->statScore / a9, a10));
 
-        const int scaledBonus = stat_bonus(depth) * std::max(bonusScale, 0);
+        scaledBonus = stat_bonus(depth) * std::max(bonusScale, 0);
+
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       scaledBonus * 436 / 32768);
 
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
           << scaledBonus * 207 / 32768;
+
+        bonusScale = (b1 * (depth > 5) + b2 * !allNode + b3 * ((ss - 1)->moveCount > b4)
+									+ b5 * (!(ss->inCheck) && bestValue <= ss->staticEval - b6)
+									+ b7 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - b8)
+									+ std::min(-(ss - 1)->statScore / b9, b10));
+
+        scaledBonus = stat_bonus(depth) * std::max(bonusScale, 0);
+
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]

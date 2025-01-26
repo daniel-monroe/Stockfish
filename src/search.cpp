@@ -803,8 +803,7 @@ Value Search::Worker::search(
                      + 5
                          * !(ss->inCheck || (ss - 1)->inCheck || (ss - 2)->inCheck
                              || (ss - 3)->inCheck || (ss - 4)->inCheck || (ss - 5)->inCheck
-                             || (ss - 6)->inCheck || (ss - 7)->inCheck
-                             || pos.gives_check(ttData.move))
+                             || (ss - 6)->inCheck || (ss - 7)->inCheck)
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 310 + 40 - std::abs(correctionValue) / 131072
              >= beta

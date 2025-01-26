@@ -919,6 +919,10 @@ Value Search::Worker::search(
         }
     }
 
+    if (depth <= 2 && ttData.depth >= depth - 4 && is_valid(ttData.value)
+        && ttData.value >= probCutBeta && ttCapture)
+        return ttData.value;
+
 moves_loop:  // When in check, search starts here
 
     // Step 12. A small Probcut idea

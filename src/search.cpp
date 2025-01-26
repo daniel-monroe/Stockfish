@@ -1076,16 +1076,16 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj   = std::abs(correctionValue) / 262144;
-                    int doubleMargin = 249 * PvNode - 194 * !ttCapture - corrValAdj;
+                    int singularMargin = singularBeta - value + 100 * std::max(priorReduction - 2, 0);
+                    int corrValAdj     = std::abs(correctionValue) / 262144;
+                    int doubleMargin   = 249 * PvNode - 194 * !ttCapture - corrValAdj;
                     int tripleMargin =
                       94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
                     int quadMargin =
                       394 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
 
-                    extension = 1 + (value < singularBeta - doubleMargin)
-                              + (value < singularBeta - tripleMargin)
-                              + (value < singularBeta - quadMargin);
+                    extension = 1 + (singularMargin > doubleMargin)
+                              + (singularMargin > tripleMargin) + (singularMargin > quadMargin);
 
                     depth += ((!PvNode) && (depth < 15));
                 }
@@ -1383,7 +1383,7 @@ moves_loop:  // When in check, search starts here
                           + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
                           + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82)
                           + 80 * ((ss - 1)->isTTMove));
-
+          
         // Proportional to "how much damage we have to undo"
         bonusScale += std::min(-(ss - 1)->statScore / 106, 318);
 

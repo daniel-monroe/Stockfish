@@ -126,7 +126,7 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
-                      bool                 isTTMove);
+                      bool                 isTTMove, int bestSs);
 
 }  // namespace
 
@@ -581,6 +581,7 @@ Value Search::Worker::search(
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     int   priorReduction = ss->reduction;
+    int   bestMoveStatScore = 0;
     ss->reduction        = 0;
     Piece movedPiece;
 
@@ -1322,6 +1323,7 @@ moves_loop:  // When in check, search starts here
             if (value + inc > alpha)
             {
                 bestMove = move;
+                bestMoveStatScore = ss->statScore;
 
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
@@ -1374,7 +1376,7 @@ moves_loop:  // When in check, search starts here
     // we update the stats of searched moves.
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
-                         bestMove == ttData.move);
+                         bestMove == ttData.move, bestMoveStatScore);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1795,13 +1797,14 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
-                      bool                 isTTMove) {
+                      bool                 isTTMove,
+  int bestSs) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth) + 300 * isTTMove;
+    int bonus = stat_bonus(depth) + (300 + std::clamp(-bestSs/80, 0, 300)) * isTTMove;
     int malus = stat_malus(depth);
 
     if (!pos.capture_stage(bestMove))

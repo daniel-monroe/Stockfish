@@ -795,7 +795,7 @@ Value Search::Worker::search(
         return qsearch<NonPV>(pos, ss, alpha, beta);
 
     // Step 8. Futility pruning: child node
-    // The depth condition is important for mate finding. 
+    // The depth condition is important for mate finding. a
 
 
     if (!ss->ttPv

@@ -796,7 +796,15 @@ Value Search::Worker::search(
 
     // Step 8. Futility pruning: child node
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 14
+
+
+    if (!ss->ttPv
+        && depth < 14
+                     + 5
+                         * !(ss->inCheck || (ss - 1)->inCheck || (ss - 2)->inCheck
+                             || (ss - 3)->inCheck || (ss - 4)->inCheck || (ss - 5)->inCheck
+                             || (ss - 6)->inCheck || (ss - 7)->inCheck
+                             || pos.gives_check(ttData.move))
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 310 + 40 - std::abs(correctionValue) / 131072
              >= beta
@@ -954,7 +962,7 @@ moves_loop:  // When in check, search starts here
 
         // At root obey the "searchmoves" option and skip moves not listed in Root
         // Move List. In MultiPV mode we also skip PV moves that have been already
-        // searched and those of lower "TB rank" if we are in a TB root position.
+        // m and those of lower "TB rank" if we are in a TB root position.
         if (rootNode
             && !std::count(thisThread->rootMoves.begin() + thisThread->pvIdx,
                            thisThread->rootMoves.begin() + thisThread->pvLast, move))

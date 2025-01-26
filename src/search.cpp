@@ -255,12 +255,15 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->reduction                     = 0;
+        (ss - i)->forceImprovement							 = false;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
         (ss + i)->ply       = i;
         (ss + i)->reduction = 0;
+        (ss + i)->forceImprovement = false;
+
     }
 
     ss->pv = pv;
@@ -581,6 +584,7 @@ Value Search::Worker::search(
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     int   priorReduction = ss->reduction;
+    ss->forceImprovement = false;
     ss->reduction        = 0;
     Piece movedPiece;
 
@@ -785,6 +789,13 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
+    if ((ss - 1)->forceImprovement)
+    {   
+        (ss - 1)->forceImprovement = false;
+        if (eval >= beta && opponentWorsening)
+            return eval;
+    }
+
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
 
@@ -943,6 +954,7 @@ moves_loop:  // When in check, search starts here
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
     {
+
         assert(move.is_ok());
 
         if (move == excludedMove)
@@ -951,6 +963,8 @@ moves_loop:  // When in check, search starts here
         // Check for legality
         if (!pos.legal(move))
             continue;
+
+
 
         // At root obey the "searchmoves" option and skip moves not listed in Root
         // Move List. In MultiPV mode we also skip PV moves that have been already
@@ -961,6 +975,7 @@ moves_loop:  // When in check, search starts here
             continue;
 
         ss->moveCount = ++moveCount;
+        ss->forceImprovement = false;
 
         if (rootNode && is_mainthread() && nodes > 10000000)
         {
@@ -1031,12 +1046,16 @@ moves_loop:  // When in check, search starts here
                 Value futilityValue = ss->staticEval + (bestMove ? 47 : 137) + 142 * lmrDepth;
 
                 // Futility pruning: parent node
-                if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
+                if (!ss->inCheck && lmrDepth < 12 && futilityValue - 140 <= alpha)
                 {
                     if (bestValue <= futilityValue && !is_decisive(bestValue)
                         && !is_win(futilityValue))
                         bestValue = futilityValue;
                     continue;
+                }
+                if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
+                {
+                    ss->forceImprovement = true;
                 }
 
                 lmrDepth = std::max(lmrDepth, 0);
@@ -1309,6 +1328,9 @@ moves_loop:  // When in check, search starts here
                 // move position in the list is preserved - just the PV is pushed up.
                 rm.score = -VALUE_INFINITE;
         }
+
+        ss->forceImprovement = false;
+
 
         // In case we have an alternative move equal in eval to the current bestmove,
         // promote it to bestmove by pretending it just exceeds alpha (but not beta).

@@ -1389,6 +1389,9 @@ moves_loop:  // When in check, search starts here
 
         bonusScale = std::max(bonusScale, 0);
 
+        if ((ss - 1)->isTTMove)
+            bonusScale = bonusScale * 5 / 4;
+
         const int scaledBonus = stat_bonus(depth) * bonusScale / 32;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,

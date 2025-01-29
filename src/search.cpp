@@ -1347,9 +1347,8 @@ moves_loop:  // When in check, search starts here
                 }
             }
         }
-        // the ttmove failed low but we expected the opponent's last move to be bad!
-        // the !bestmove condition shouldnt be necessary since this node must be a cutnode
-        if (move == ttData.move && !grantedDepthIncrease && priorReduction >= 3 && !bestMove)
+        // a couple surprising fail lows, so be more careful
+        if (moveCount == 2 && !grantedDepthIncrease && priorReduction >= 3 && !bestMove)
             depth++;
 
         // If the move is worse than some previously searched move,

@@ -784,7 +784,7 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    if (priorReduction >= 3 && !opponentWorsening)
+    if (priorReduction >= 3 && (!opponentWorsening || (ttData.bound & BOUND_UPPER)))
         depth++;
 
     // Step 7. Razoring

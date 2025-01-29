@@ -580,6 +580,7 @@ Value Search::Worker::search(
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     int   priorReduction = (ss-1)->reduction;
+    bool  grantedDepthIncrease = false;
     (ss-1)->reduction        = 0;
     Piece movedPiece;
 
@@ -785,7 +786,11 @@ Value Search::Worker::search(
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
     if (priorReduction >= 3 && !opponentWorsening)
+    {
+
         depth++;
+        grantedDepthIncrease = true;
+    }
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
@@ -1342,6 +1347,10 @@ moves_loop:  // When in check, search starts here
                 }
             }
         }
+        // the ttmove failed low but we expected the opponent's last move to be bad!
+        // the !bestmove condition shouldnt be necessary since this node must be a cutnode
+        if (move == ttData.move && !grantedDepthIncrease && priorReduction >= 3 && !bestMove)
+            depth++;
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.

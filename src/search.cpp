@@ -254,13 +254,11 @@ void Search::Worker::iterative_deepening() {
           &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
-        (ss - i)->reduction                     = 0;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
         (ss + i)->ply       = i;
-        (ss + i)->reduction = 0;
     }
 
     ss->pv = pv;
@@ -579,8 +577,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction = ss->reduction;
-    ss->reduction        = 0;
+    bool  depthBonus;
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -642,6 +639,7 @@ Value Search::Worker::search(
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+    depthBonus   = false;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -784,8 +782,6 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    if (priorReduction >= 3 && !opponentWorsening)
-        depth++;
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
@@ -1107,7 +1103,10 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta
                 else if (ttData.value >= beta)
+                {
                     extension = -3;
+                    depthBonus = true;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high
                 // over current beta
@@ -1194,10 +1193,10 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
-            (ss + 1)->reduction = newDepth - d;
+            if (newDepth - d >= 3 && depthBonus && !bestMove)
+                d++;
 
             value               = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
-            (ss + 1)->reduction = 0;
 
 
             // Do a full-depth search when reduced LMR search fails high

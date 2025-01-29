@@ -1347,8 +1347,8 @@ moves_loop:  // When in check, search starts here
                 }
             }
         }
-        // a couple surprising fail lows, so be more careful
-        if (moveCount == 2 && !grantedDepthIncrease && priorReduction >= 3 && !bestMove)
+        // a surprising fail, so be more careful
+        if (moveCount == 1 && !grantedDepthIncrease && priorReduction >= 3 && !bestMove)
             depth++;
 
         // If the move is worse than some previously searched move,

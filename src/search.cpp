@@ -87,7 +87,6 @@ int correction_value(const Worker& w, const Position& pos, const Stack* ss) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
     const auto  pcv   = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
-    const auto  macv  = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][non_pawn_index<WHITE>(pos)][us];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][non_pawn_index<BLACK>(pos)][us];
@@ -95,7 +94,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* ss) {
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                  : 0;
 
-    return (6922 * pcv + 3837 * macv + 6238 * micv + 7490 * (wnpcv + bnpcv) + 6270 * cntcv);
+    return (7000 * pcv + 6300 * micv + 7550 * (wnpcv + bnpcv) + 6320 * cntcv);
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -126,7 +125,8 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
-                      bool                 isTTMove);
+                      bool                 isTTMove,
+                      int                  moveCount);
 
 }  // namespace
 
@@ -516,7 +516,6 @@ void Search::Worker::clear() {
     captureHistory.fill(-631);
     pawnHistory.fill(-1210);
     pawnCorrectionHistory.fill(0);
-    majorPieceCorrectionHistory.fill(0);
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
@@ -1240,7 +1239,7 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv[0] = Move::none();
 
             // Extend move from transposition table if we are about to dive into qsearch.
-            if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
+            if (move == ttData.move && thisThread->rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
@@ -1328,7 +1327,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
-                    ss->cutoffCnt += !ttData.move + (extension < 2);
+                    ss->cutoffCnt += (extension < 2);
                     assert(value >= beta);  // Fail high
                     break;
                 }
@@ -1374,7 +1373,7 @@ moves_loop:  // When in check, search starts here
     // we update the stats of searched moves.
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
-                         bestMove == ttData.move);
+                         bestMove == ttData.move, moveCount);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1382,23 +1381,21 @@ moves_loop:  // When in check, search starts here
         int bonusScale = (118 * (depth > 5) + 37 * !allNode + 169 * ((ss - 1)->moveCount > 8)
                           + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
                           + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82)
-                          + 80 * ((ss - 1)->isTTMove));
-
-        // Proportional to "how much damage we have to undo"
-        bonusScale += std::min(-(ss - 1)->statScore / 106, 318);
+                          + 80 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 106, 318));
 
         bonusScale = std::max(bonusScale, 0);
 
-        const int scaledBonus = stat_bonus(depth) * bonusScale / 32;
+        const int scaledBonus = stat_bonus(depth) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      scaledBonus * 436 / 1024);
+                                      scaledBonus * 436 / 32768);
 
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << scaledBonus * 207 / 1024;
+        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+          << scaledBonus * 207 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << scaledBonus * 1195 / 1024;
+              << scaledBonus * 1195 / 32768;
     }
 
     else if (priorCapture && prevSq != SQ_NONE)
@@ -1439,7 +1436,6 @@ moves_loop:  // When in check, search starts here
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
           << bonus * 114 / 128;
-        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 163 / 128;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 146 / 128;
         thisThread->nonPawnCorrectionHistory[WHITE][non_pawn_index<WHITE>(pos)][us]
           << bonus * nonPawnWeight / 128;
@@ -1795,14 +1791,15 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
-                      bool                 isTTMove) {
+                      bool                 isTTMove,
+                      int                  moveCount) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
     int bonus = stat_bonus(depth) + 300 * isTTMove;
-    int malus = stat_malus(depth);
+    int malus = stat_malus(depth) - 34 * (moveCount - 1);
 
     if (!pos.capture_stage(bestMove))
     {

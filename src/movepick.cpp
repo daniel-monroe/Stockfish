@@ -182,6 +182,11 @@ void MovePicker::score() {
 
             if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + 2 * ply);
+
+            
+            if (m.promotion_type() == BISHOP || m.promotion_type() == ROOK)
+                m.value -= 50000;
+
         }
 
         else  // Type == EVASIONS

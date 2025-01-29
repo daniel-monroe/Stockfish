@@ -1148,7 +1148,7 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 307 - moveCount * (64 + 10 * priorReduction);
+        r += 307 - moveCount * (64 + 10 * std::max(priorReduction - 2, 0));
 
         r -= std::abs(correctionValue) / 34112;
 

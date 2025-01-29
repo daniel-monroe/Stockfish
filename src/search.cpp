@@ -1156,10 +1156,6 @@ moves_loop:  // When in check, search starts here
         if (cutNode)
             r += 2355 - (ttData.depth >= depth && ss->ttPv) * 1141;
 
-        // Increase reduction if ttMove is a capture but the current move is not a capture
-        if (ttCapture && !capture)
-            r += 1087 + (depth < 8) * 990;
-
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 3)
             r += 940 + allNode * 887;
@@ -1190,6 +1186,8 @@ moves_loop:  // When in check, search starts here
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
 
+           // Increase reduction if ttMove is a capture but the current move is not a capture
+           if (ttCapture) r += 1087 + (depth < 8) * 990;
 
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));

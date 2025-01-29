@@ -876,7 +876,7 @@ Value Search::Worker::search(
         {
             assert(move.is_ok());
 
-            if (move == excludedMove)
+            if (move == excludedMove || (pos.capture_stage(move) && move.to_sq() == excludedMove.to_sq()))
                 continue;
 
             if (!pos.legal(move))

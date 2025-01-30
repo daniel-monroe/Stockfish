@@ -108,7 +108,7 @@ void TTEntry::save(
 
         key16     = uint16_t(k);
         if (uint16_t(k) == key16)
-          depth8 = uint8_t(std::max(depth8 - 3, d - DEPTH_ENTRY_OFFSET));
+          depth8 = uint8_t(std::max(depth8 - 2, d - DEPTH_ENTRY_OFFSET));
         else
           depth8    = uint8_t(d - DEPTH_ENTRY_OFFSET);
         genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);

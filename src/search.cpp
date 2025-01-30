@@ -986,7 +986,7 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold
-            if (moveCount >= futility_move_count(improving, depth))
+            if (moveCount >= (1 + (depth >= 4)) * futility_move_count(improving, depth))
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search
@@ -1193,6 +1193,10 @@ moves_loop:  // When in check, search starts here
 
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
+
+            if (moveCount >= futility_move_count(improving, depth) && !pos.gives_check(move)
+                && !pos.capture_stage(move))
+                d = 1;
 
             (ss + 1)->reduction = newDepth - d;
 

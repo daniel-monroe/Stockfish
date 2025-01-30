@@ -867,7 +867,7 @@ Value Search::Worker::search(
         // but we also do a move before it. So effective depth is equal to depth - 3.
         && !(ttData.depth >= depth - 3 && is_valid(ttData.value) && ttData.value < probCutBeta)
       
-      && !(is_valid(ttData.value) && ttData.value < beta - 100))
+      && !(ttData.bound & BOUND_UPPER))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 

@@ -1150,6 +1150,8 @@ moves_loop:  // When in check, search starts here
 
         r += 307 - moveCount * 64;
 
+        r += 512 * bool(bestMove);
+
         r -= std::abs(correctionValue) / 34112;
 
         // Increase reduction for cut nodes

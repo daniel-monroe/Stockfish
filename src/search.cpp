@@ -62,6 +62,9 @@ void syzygy_extend_pv(const OptionsMap&            options,
 
 using namespace Search;
 
+int sse[10] = {470, 430, 390, 350, 310, 270, 230, 190, 150, 110};
+TUNE(SetRange(0, 600), sse);
+
 namespace {
 
 // (*Scalers):
@@ -802,9 +805,11 @@ Value Search::Worker::search(
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
 
+
+
     // Step 9. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 20 * depth + 470 - 60 * improving && !excludedMove
+        && ss->staticEval >= beta + (depth < 20 ? sse[depth / 2] : 470 - 20 * depth) - 60 * improving && !excludedMove
         && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
         assert(eval - beta >= 0);

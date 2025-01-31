@@ -1146,6 +1146,8 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             r -= 1018;
 
+        r -= 1024 * bool(bestMove);
+
         // These reduction adjustments have no proven non-linear scaling
 
         r += 307 - moveCount * 64;

@@ -60,7 +60,7 @@ inline int minor_piece_index(const Position& pos) {
 
 template<Color c>
 inline int non_pawn_index(const Position& pos) {
-    return pos.non_pawn_key(c) & (CORRECTION_HISTORY_SIZE - 1);
+    return (pos.non_pawn_key(c) ^ pos.pawn_key()) & (CORRECTION_HISTORY_SIZE - 1);
 }
 
 // StatsEntry is the container of various numerical statistics. We use a class

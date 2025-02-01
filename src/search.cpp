@@ -899,6 +899,11 @@ Value Search::Worker::search(
             // Perform a preliminary qsearch to verify that the move holds
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
+
+            if (value >= probCutBeta && probCutDepth >= 10)
+                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, 2,
+                                       !cutNode);
+
             // If the qsearch held, perform the regular search
             if (value >= probCutBeta && probCutDepth > 0)
                 value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,

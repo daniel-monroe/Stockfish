@@ -787,6 +787,16 @@ Value Search::Worker::search(
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
 
+    if ((ss - 1)->currentMove == Move::null())
+    {
+        depth += (eval > alpha) - std::clamp(int(alpha - eval) / 500, 0, 3);
+    }
+
+        // Use qsearch if depth <= 0
+    if (depth <= 0)
+        return qsearch<NonPV>(pos, ss, alpha, beta);
+    
+
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
     // For PvNodes, we must have a guard against mates being returned.

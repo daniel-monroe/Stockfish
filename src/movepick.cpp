@@ -86,6 +86,7 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
+                       const Move                   lm,
                        int                          pl) :
     pos(p),
     mainHistory(mh),
@@ -94,6 +95,7 @@ MovePicker::MovePicker(const Position&              p,
     continuationHistory(ch),
     pawnHistory(ph),
     ttMove(ttm),
+    lastMove(lm),
     depth(d),
     ply(pl) {
 
@@ -167,6 +169,19 @@ void MovePicker::score() {
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
+
+            if (lastMove.is_ok())
+            {
+                Square lmTo   = lastMove.to_sq();
+                Square lmFrom = lastMove.from_sq();
+                if (lmTo == from)
+                {
+                    if (lmFrom == to)
+                        m.value -= 8000;
+                    else if (type_of(pc) == KNIGHT)
+                        m.value += 8000;
+                }
+            }
 
             // bonus for escaping from capture
             m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 51700

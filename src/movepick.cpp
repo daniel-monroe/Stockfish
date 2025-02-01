@@ -183,6 +183,10 @@ void MovePicker::score() {
                         if (int(lmFrom) / 8 == int(from) / 8 && int(from) / 8 == int(to) / 8)
                             m.value -= 8000;
                     }
+                    else
+                    {
+                        m.value -= 8000;
+                    }
                 }
             }
 

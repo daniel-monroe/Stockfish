@@ -174,12 +174,15 @@ void MovePicker::score() {
             {
                 Square lmTo   = lastMove.to_sq();
                 Square lmFrom = lastMove.from_sq();
-                if (lmTo == from)
+                if (lmTo == from && !(threatenedPieces & from))
                 {
-                    if (lmFrom == to)
-                        m.value -= 8000;
-                    else if (type_of(pc) == KNIGHT)
-                        m.value += 8000;
+                    if (type_of(pc) == QUEEN || type_of(pc) == ROOK)
+                    {
+                        if (int(lmFrom) % 8 == int(from) % 8 && int(from) % 8 == int(to) % 8)
+                            m.value -= 8000;
+                        if (int(lmFrom) / 8 == int(from) / 8 && int(from) / 8 == int(to) / 8)
+                            m.value -= 8000;
+                    }
                 }
             }
 

@@ -1391,11 +1391,11 @@ moves_loop:  // When in check, search starts here
                                       scaledBonus * 436 / 32768);
 
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << scaledBonus * 207 / 32768;
+          << std::min(scaledBonus * 207 / 32768, 7183);
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << scaledBonus * 1195 / 32768;
+              << std::min(scaledBonus * 1195 / 32768, 8192);
     }
 
     else if (priorCapture && prevSq != SQ_NONE)

@@ -890,7 +890,7 @@ Value Search::Worker::search(
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
             ss->currentMove = move;
-            ss->isTTMove    = (move == ttData.move);
+            ss->isTTMove    = (move == ttData.move && ttData.depth > DEPTH_QS);
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
             ss->continuationCorrectionHistory =

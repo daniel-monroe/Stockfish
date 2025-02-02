@@ -148,7 +148,8 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
                       bool                 isTTMove,
-                      int                  moveCount);
+                      int                  moveCount,
+                      int                  extension);
 
 }  // namespace
 
@@ -597,7 +598,7 @@ Value Search::Worker::search(
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
-    Depth extension, newDepth;
+    Depth extension, newDepth, ttExtension;
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
@@ -988,6 +989,7 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv = nullptr;
 
         extension  = 0;
+        ttExtension = 0;
         capture    = pos.capture_stage(move);
         movedPiece = pos.moved_piece(move);
         givesCheck = pos.gives_check(move);
@@ -1107,11 +1109,13 @@ moves_loop:  // When in check, search starts here
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
 
+                    ttExtension = extension;
+
                     depth += (depth < 15);
                 }
 
                 // Multi-cut pruning
-                // Our ttMove is assumed to fail high based on the bound of the TT entry,
+                // Our ttMove is assumed to oail high based on the bound of the TT entry,
                 // and if after excluding the ttMove with a reduced search we fail high
                 // over the original beta, we assume this expected cut-node is not
                 // singular (multiple moves fail high), and we can prune the whole
@@ -1394,7 +1398,7 @@ moves_loop:  // When in check, search starts here
     // we update the stats of searched moves.
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
-                         bestMove == ttData.move, moveCount);
+                         bestMove == ttData.move, moveCount, ttExtension);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1801,13 +1805,14 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
                       bool                 isTTMove,
-                      int                  moveCount) {
+                      int                  moveCount,
+                      int                  extension) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth) + 300 * isTTMove;
+    int bonus = stat_bonus(depth + extension * isTTMove) + 300 * isTTMove;
     int malus = stat_malus(depth) - 34 * (moveCount - 1);
 
     if (!pos.capture_stage(bestMove))

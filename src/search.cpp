@@ -1142,7 +1142,7 @@ moves_loop:  // When in check, search starts here
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 4126)
                 extension = 1;
-            else if (move == ttData.move && ttData.value >= beta + 1000 && is_valid(ttData.value)
+            else if (move == ttData.move && ttData.value >= beta + 500 && is_valid(ttData.value)
                      && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER))
                 extension = 1;
         }

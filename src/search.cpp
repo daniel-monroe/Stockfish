@@ -1374,7 +1374,8 @@ moves_loop:  // When in check, search starts here
             {
                 if (bestMove && !pos.capture(bestMove))
                     update_quiet_histories(pos, ss, *this, move, -stat_malus(depth));
-                quietsSearched.push_back(move);
+                else
+                  quietsSearched.push_back(move);
             }
         }
     }

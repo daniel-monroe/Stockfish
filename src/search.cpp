@@ -1346,11 +1346,19 @@ moves_loop:  // When in check, search starts here
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.
         if (move != bestMove && moveCount <= 32)
-        {
+        {   
+
+            
             if (capture)
                 capturesSearched.push_back(move);
             else
+            {
                 quietsSearched.push_back(move);
+                if (bestMove && !pos.capture_stage(bestMove))
+                    update_quiet_histories(pos, ss, *this, move, -stat_malus(depth));
+            }
+
+
         }
     }
 

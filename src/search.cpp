@@ -876,14 +876,14 @@ Value Search::Worker::search(
     // Step 11. ProbCut
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
-    probCutBeta = beta + 140 - 56 * improving;
+    probCutBeta = beta + 174 - 56 * improving;
     if (depth >= 3
         && !is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
         // depth is set to depth - 3 because probCut search has depth set to depth - 4
         // but we also do a move before it. So effective depth is equal to depth - 3.
-        && !(is_valid(ttData.value) && ttData.value < probCutBeta))
+        && !(is_valid(ttData.value) && ttData.value < probCutBeta - 40 * ttCapture))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
@@ -893,7 +893,9 @@ Value Search::Worker::search(
         {
             assert(move.is_ok());
 
+
             Depth probCutDepth = std::max(depth - 4 + (move == ttData.move), 0);
+            Value pcb          = probCutBeta - 40 * (move == ttData.move);
 
             if (move == excludedMove)
                 continue;
@@ -916,23 +918,23 @@ Value Search::Worker::search(
               &this->continuationCorrectionHistory[movedPiece][move.to_sq()];
 
             // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+            value = -qsearch<NonPV>(pos, ss + 1, -pcb, -pcb + 1);
 
             // If the qsearch held, perform the regular search
-            if (value >= probCutBeta && probCutDepth > 0)
-                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
+            if (value >= pcb && probCutDepth > 0)
+                value = -search<NonPV>(pos, ss + 1, -pcb, -pcb + 1, probCutDepth,
                                        !cutNode);
 
             pos.undo_move(move);
 
-            if (value >= probCutBeta)
+            if (value >= pcb)
             {
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
                                probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
 
                 if (!is_decisive(value))
-                    return value - (probCutBeta - beta);
+                    return value - (pcb - beta);
             }
         }
     }

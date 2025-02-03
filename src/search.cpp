@@ -792,7 +792,7 @@ Value Search::Worker::search(
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
         int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1881, 1413) + 616;
-        if (!(ss - 1)->isTTMove && bonus < 0)
+        if (!((ss - 1)->isTTMove && bonus < 0))
         {
             thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus * 1151 / 1024;
             if (type_of(pos.piece_on(prevSq)) != PAWN

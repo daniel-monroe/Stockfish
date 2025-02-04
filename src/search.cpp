@@ -958,7 +958,7 @@ moves_loop:  // When in check, search starts here
     {
         MovePicker spec_mp(pos, ttData.move, depth, &thisThread->mainHistory,
                            &thisThread->lowPlyHistory, &thisThread->captureHistory, contHist,
-                           &thisThread->pawnHistory, ss->ply);
+                           &thisThread->pawnHistory, ss->ply, Move::none());
 
         while ((move = spec_mp.next_move()) != Move::none())
         {
@@ -979,7 +979,9 @@ moves_loop:  // When in check, search starts here
 
             auto [ttHitSpec, ttDataSpec, ttWriterSpec] = tt.probe(pos.key());
 
-            Value nextValue = ttDataSpec.value;
+            Value nextValue = 
+              ttHitSpec ? value_from_tt(ttDataSpec.value, ss->ply + 1, pos.rule50_count()) : VALUE_NONE;
+
             if (is_valid(nextValue))
             {
                 if (-nextValue > specBestValue)
@@ -996,7 +998,6 @@ moves_loop:  // When in check, search starts here
 
 
         value = bestValue;
-
         moveCount = 0;
 
         MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory,
@@ -1645,7 +1646,7 @@ moves_loop:  // When in check, search starts here
         // captures, or evasions only when in check.
         MovePicker mp(pos, ttData.move, DEPTH_QS, &thisThread->mainHistory,
                       &thisThread->lowPlyHistory, &thisThread->captureHistory, contHist,
-                      &thisThread->pawnHistory, ss->ply);
+                      &thisThread->pawnHistory, ss->ply, Move::none());
 
         // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
         // cutoff occurs.

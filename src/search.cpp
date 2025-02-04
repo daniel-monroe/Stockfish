@@ -1375,61 +1375,68 @@ moves_loop:  // When in check, search starts here
         }
     }
 
+    assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
+
     // Step 21. Check for mate and stalemate
     // All legal moves have been searched and if there are no legal moves, it
     // must be a mate or a stalemate. If we are in a singular extension search then
     // return a fail low score.
-
-    assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
-
-    // Adjust best value for fail high cases at non-pv nodes
-    if (!PvNode && bestValue >= beta && !is_decisive(bestValue) && !is_decisive(beta)
-        && !is_decisive(alpha))
-        bestValue = (bestValue * depth + beta) / (depth + 1);
-
     if (!moveCount)
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
+    // Step 22. Post-search bonuses
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
                          bestMove == ttData.move, moveCount);
 
-    // Bonus for prior countermove that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
+    // If we fail low and the opponent's last move was valid, we give that move a bonus.
+    else if (prevSq != SQ_NONE)
     {
-        int bonusScale = (118 * (depth > 5) + 37 * !allNode + 169 * ((ss - 1)->moveCount > 8)
-                          + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
-                          + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82)
-                          + 80 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 106, 318));
+        // Bonus for prior non-capture
+        if (!priorCapture)
+        {
+            int bonusScale =
+              (118 * (depth > 5) + 37 * !allNode + 169 * ((ss - 1)->moveCount > 8)
+               + 128 * (!ss->inCheck && bestValue <= ss->staticEval - 102)
+               + 115 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 82)
+               + 80 * ((ss - 1)->isTTMove) + std::min(-(ss - 1)->statScore / 106, 318));
 
-        bonusScale = std::max(bonusScale, 0);
+            bonusScale = std::max(bonusScale, 0);
 
-        const int scaledBonus = stat_bonus(depth) * bonusScale;
+            const int scaledBonus = stat_bonus(depth) * bonusScale;
 
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      scaledBonus * 436 / 32768);
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                          scaledBonus * 436 / 32768);
 
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << scaledBonus * 207 / 32768;
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+              << scaledBonus * 207 / 32768;
 
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << scaledBonus * 1195 / 32768;
+            if (type_of(pos.piece_on(prevSq)) != PAWN
+                && ((ss - 1)->currentMove).type_of() != PROMOTION)
+                thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+                  << scaledBonus * 1195 / 32768;
+        }
+        // Bonus for prior capture
+        else
+        {
+            Piece capturedPiece = pos.captured_piece();
+            assert(capturedPiece != NO_PIECE);
+            thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
+              << stat_bonus(depth) * 2;
+        }
     }
 
-    else if (priorCapture && prevSq != SQ_NONE)
-    {
-        // bonus for prior countermoves that caused the fail low
-        Piece capturedPiece = pos.captured_piece();
-        assert(capturedPiece != NO_PIECE);
-        thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
-          << stat_bonus(depth) * 2;
-    }
 
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
+
+    // Adjust best value for fail high cases at non-pv nodes
+    else if (moveCount && bestValue >= beta && !is_decisive(bestValue) && !is_decisive(beta)
+             && !is_decisive(alpha))
+        bestValue = (bestValue * depth + beta) / (depth + 1);
+
 
     // If no good move is found and the previous position was ttPv, then the previous
     // opponent move is probably good and the new position is added to the search tree.

@@ -72,7 +72,7 @@ class MovePicker {
     int                          threshold;
     Depth                        depth;
     int                          ply;
-    Move                         goodMove;
+    Move                         goodMove = Move::none();
     bool                         skipQuiets = false;
     ExtMove                      moves[MAX_MOVES];
 };

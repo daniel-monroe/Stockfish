@@ -277,12 +277,14 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->reduction                     = 0;
+        (ss - i)->reducing                     = false;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
         (ss + i)->ply       = i;
         (ss + i)->reduction = 0;
+        (ss + i)->reducing = false;
     }
 
     ss->pv = pv;
@@ -808,7 +810,7 @@ Value Search::Worker::search(
 
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
-    if (priorReduction >= 1 && !(ss - 1)->inCheck && ss->staticEval + (ss - 1)->staticEval > 200)
+    if ((ss-1)->reducing && !(ss - 1)->inCheck && ss->staticEval + (ss - 1)->staticEval > 200)
         depth--;
 
     // Step 7. Razoring
@@ -1218,9 +1220,11 @@ moves_loop:  // When in check, search starts here
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
             ss->reduction = newDepth - d;
+            ss->reducing  = true;
 
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
+            ss->reducing = false;
 
 
             // Do a full-depth search when reduced LMR search fails high

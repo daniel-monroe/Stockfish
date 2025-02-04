@@ -806,7 +806,12 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 5;
 
-    if (priorReduction >= 3 && !opponentWorsening)
+
+
+    if (priorReduction >= 3
+        && (!opponentWorsening
+            || (is_valid((ss - 1)->ttValue) && is_valid(ttData.value)
+                && ttData.value < -(ss - 1)->ttValue)))
         depth++;
 
     // Step 7. Razoring
@@ -1212,6 +1217,7 @@ moves_loop:  // When in check, search starts here
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
             ss->reduction = newDepth - d;
+            ss->ttValue   = ttData.value;
 
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;

@@ -197,7 +197,7 @@ void MovePicker::score() {
                         + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
         }
 
-        // m.value += 30000 * (m == goodMove);
+        m.value += 100000 * (m == goodMove);
     }
 }
 

@@ -812,8 +812,7 @@ Value Search::Worker::search(
         depth++;
     if (priorReduction >= 1 && !(ss - 1)->inCheck && pos.non_pawn_material(~us))
     {
-        depth -= (ss->staticEval > -(ss - 1)->staticEval + 200)
-               + (ss->staticEval > -(ss - 1)->staticEval + 400);
+        depth -= (ss->staticEval > -(ss - 1)->staticEval + 200) * 2;
         depth = std::max(depth, 1);
     }
 

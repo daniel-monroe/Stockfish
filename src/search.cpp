@@ -570,7 +570,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-    {
+    { 
         constexpr auto nt = PvNode ? PV : NonPV;
         return qsearch<nt>(pos, ss, alpha, beta);
     }
@@ -815,6 +815,8 @@ Value Search::Worker::search(
 
     if (depth <= 0)
     {
+        if (eval >= beta)
+            return eval;
         constexpr auto nt = PvNode ? PV : NonPV;
         return qsearch<nt>(pos, ss, alpha, beta);
     }

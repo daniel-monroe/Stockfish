@@ -73,10 +73,7 @@ namespace {
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 112 - 26 * noTtCutNode;
-    Value improvingDeduction = improving * futilityMult * 2;
-    Value worseningDeduction = oppWorsening * futilityMult / 3;
-
-    return futilityMult * d - improvingDeduction - worseningDeduction;
+    return futilityMult * d - improving * 200 - oppWorsening * 35;
 }
 
 constexpr int futility_move_count(bool improving, Depth depth) {
@@ -807,7 +804,7 @@ Value Search::Worker::search(
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 5;
 
     if (priorReduction >= 3 && !opponentWorsening)
-        depth++;
+        depth++;  
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.

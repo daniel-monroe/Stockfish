@@ -687,7 +687,7 @@ Value Search::Worker::search(
                                               -stat_malus(depth + 1) * 1018 / 1024);
         }
 
-        if (prevSq != SQ_NONE && !priorCapture)
+        if (prevSq != SQ_NONE && !priorCapture && ttData.value < beta)
         {
             int bonusScale = (118 * (depth > 5) + 36 * !allNode + 161 * ((ss - 1)->moveCount > 8)
                               + 81 * ((ss - 1)->isTTMove) + 100 * (ss->cutoffCnt <= 3)

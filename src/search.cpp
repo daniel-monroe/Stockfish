@@ -808,9 +808,11 @@ Value Search::Worker::search(
 
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
-    if (priorReduction >= 1 && depth >= 2 && !(ss - 1)->inCheck && ss->staticEval + (ss - 1)->staticEval > 200 && pos.non_pawn_material(~us))
+    if (priorReduction >= 1 && depth >= 2 && !(ss - 1)->inCheck
+        && ss->staticEval + (ss - 1)->staticEval > 200 && pos.non_pawn_material(~us)
+        && !(ttData.bound & BOUND_UPPER))
     {
-        depth--;
+        depth -= 1 + (depth >= 5);
     }
 
     // Step 7. Razoring

@@ -888,7 +888,6 @@ Value Search::Worker::search(
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
-        Depth      probCutDepth = std::max(depth - 4, 0);
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -902,6 +901,9 @@ Value Search::Worker::search(
 
             if (ttCapture && move != ttData.move)
                 continue;
+
+            Depth probCutDepth = std::max(depth - 4 + (move == ttData.move), 0);
+
 
             assert(pos.capture_stage(move));
 

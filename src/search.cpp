@@ -1084,7 +1084,7 @@ moves_loop:  // When in check, search starts here
         // If we have a good enough capture (or queen promotion) and a reduced search
         // returns a value much above beta, we can (almost) safely prune the previous move.
         probCutBeta = beta + 187 - 55 * improving;
-        if (depth >= 3 && !is_decisive(beta)
+        if (moveCount == 1 && depth >= 3 && !is_decisive(beta)
             && !ss->inCheck
             // If value from transposition table is lower than probCutBeta, don't attempt
             // probCut there and in further interactions with transposition table cutoff

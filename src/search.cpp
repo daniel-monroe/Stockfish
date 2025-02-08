@@ -878,7 +878,7 @@ Value Search::Worker::search(
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 187 - 55 * improving;
     if (depth >= 3
-        && !is_decisive(beta)
+        && !is_decisive(beta) && !excludedMove
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
         // depth is set to depth - 3 because probCut search has depth set to depth - 4

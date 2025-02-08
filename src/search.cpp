@@ -665,6 +665,11 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
+    bool willSing = (!rootNode && ttData.move && !excludedMove
+                          && depth >= 5 - (thisThread->completedDepth > 32) + ss->ttPv
+                          && is_valid(ttData.value) && !is_decisive(ttData.value)
+                          && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3);
+
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
 
@@ -888,11 +893,12 @@ Value Search::Worker::search(
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
-        Depth      probCutDepth = std::max(depth - 4, 0);
 
         while ((move = mp.next_move()) != Move::none())
         {
             assert(move.is_ok());
+
+            Depth probCutDepth = std::max(depth - 4 + (willSing && move == ttData.move), 0);
 
             if (move == excludedMove)
                 continue;
@@ -1086,10 +1092,7 @@ moves_loop:  // When in check, search starts here
             // (* Scaler) Generally, higher singularBeta (i.e closer to ttValue)
             // and lower extension margins scale well.
 
-            if (!rootNode && move == ttData.move && !excludedMove
-                && depth >= 5 - (thisThread->completedDepth > 32) + ss->ttPv
-                && is_valid(ttData.value) && !is_decisive(ttData.value)
-                && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
+            if (willSing && move == ttData.move)
             {
                 Value singularBeta  = ttData.value - (55 + 81 * (ss->ttPv && !PvNode)) * depth / 58;
                 Depth singularDepth = newDepth / 2;

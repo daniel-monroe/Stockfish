@@ -873,68 +873,7 @@ Value Search::Worker::search(
     if (((PvNode || cutNode) && depth >= 7 - 3 * PvNode) && !ttData.move)
         depth--;
 
-    // Step 11. ProbCut
-    // If we have a good enough capture (or queen promotion) and a reduced search
-    // returns a value much above beta, we can (almost) safely prune the previous move.
-    probCutBeta = beta + 187 - 55 * improving;
-    if (depth >= 3
-        && !is_decisive(beta)
-        // If value from transposition table is lower than probCutBeta, don't attempt
-        // probCut there and in further interactions with transposition table cutoff
-        // depth is set to depth - 3 because probCut search has depth set to depth - 4
-        // but we also do a move before it. So effective depth is equal to depth - 3.
-        && !(is_valid(ttData.value) && ttData.value < probCutBeta))
-    {
-        assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
-
-        MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
-        Depth      probCutDepth = std::max(depth - 4, 0);
-
-        while ((move = mp.next_move()) != Move::none())
-        {
-            assert(move.is_ok());
-
-            if (move == excludedMove)
-                continue;
-
-            if (!pos.legal(move))
-                continue;
-
-            assert(pos.capture_stage(move));
-
-            movedPiece = pos.moved_piece(move);
-
-            pos.do_move(move, st, &tt);
-            thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-
-            ss->currentMove = move;
-            ss->isTTMove    = (move == ttData.move);
-            ss->continuationHistory =
-              &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
-            ss->continuationCorrectionHistory =
-              &this->continuationCorrectionHistory[movedPiece][move.to_sq()];
-
-            // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
-
-            // If the qsearch held, perform the regular search
-            if (value >= probCutBeta && probCutDepth > 0)
-                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
-                                       !cutNode);
-
-            pos.undo_move(move);
-
-            if (value >= probCutBeta)
-            {
-                // Save ProbCut data into transposition table
-                ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
-
-                if (!is_decisive(value))
-                    return value - (probCutBeta - beta);
-            }
-        }
-    }
+    
 
 moves_loop:  // When in check, search starts here
 
@@ -1137,6 +1076,76 @@ moves_loop:  // When in check, search starts here
                 // over current beta
                 else if (cutNode)
                     extension = -2;
+            }
+        }
+
+
+        // Step 11. ProbCut
+        // If we have a good enough capture (or queen promotion) and a reduced search
+        // returns a value much above beta, we can (almost) safely prune the previous move.
+        probCutBeta = beta + 187 - 55 * improving;
+        if (depth >= 3 && !is_decisive(beta)
+            && !ss->inCheck
+            // If value from transposition table is lower than probCutBeta, don't attempt
+            // probCut there and in further interactions with transposition table cutoff
+            // depth is set to depth - 3 because probCut search has depth set to depth - 4
+            // but we also do a move before it. So effective depth is equal to depth - 3.
+            && !(is_valid(ttData.value) && ttData.value < probCutBeta))
+        {
+            assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
+
+            MovePicker pcb_mp(pos, ttData.move, probCutBeta - ss->staticEval,
+                          &thisThread->captureHistory);
+
+            Move pcb_move;
+
+            while ((pcb_move = pcb_mp.next_move()) != Move::none())
+            {
+                assert(pcb_move.is_ok());
+                Depth probCutDepth =
+                  std::max(depth - 4 + (pcb_move == ttData.move) * std::max(extension, -1), 0);
+
+
+                if (pcb_move == excludedMove)
+                    continue;
+
+                if (!pos.legal(pcb_move))
+                    continue;
+
+                assert(pos.capture_stage(pcb_move));
+
+                movedPiece = pos.moved_piece(pcb_move);
+
+                pos.do_move(pcb_move, st, &tt);
+                thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+
+                ss->currentMove = pcb_move;
+                ss->isTTMove    = (pcb_move == ttData.move);
+                ss->continuationHistory =
+                  &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
+                ss->continuationCorrectionHistory =
+                  &this->continuationCorrectionHistory[movedPiece][move.to_sq()];
+
+                // Perform a preliminary qsearch to verify that the move holds
+                value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+
+                // If the qsearch held, perform the regular search
+                if (value >= probCutBeta && probCutDepth > 0)
+                    value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                           probCutDepth, !cutNode);
+
+                pos.undo_move(pcb_move);
+
+                if (value >= probCutBeta)
+                {
+                    // Save ProbCut data into transposition table
+                    ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
+                                   probCutDepth + 1, pcb_move, unadjustedStaticEval,
+                                   tt.generation());
+
+                    if (!is_decisive(value))
+                        return value - (probCutBeta - beta);
+                }
             }
         }
 

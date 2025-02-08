@@ -1099,6 +1099,8 @@ moves_loop:  // When in check, search starts here
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
                 ss->excludedMove = Move::none();
 
+                mp.set_good_move(ss->extensionMove);
+
                 if (value < singularBeta)
                 {
                     int corrValAdj1  = std::abs(correctionValue) / 265083;
@@ -1442,6 +1444,9 @@ moves_loop:  // When in check, search starts here
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
                        depth, bestMove, unadjustedStaticEval, tt.generation());
+
+    if (excludedMove)
+        ss->extensionMove = bestMove;
 
     // Adjust correction history
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))

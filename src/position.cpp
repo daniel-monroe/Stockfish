@@ -46,6 +46,7 @@ namespace Stockfish {
 namespace Zobrist {
 
 Key psq[PIECE_NB][SQUARE_NB];
+Key psq2[PIECE_NB][SQUARE_NB][SQUARE_NB];
 Key enpassant[FILE_NB];
 Key castling[CASTLING_RIGHT_NB];
 Key side, noPawns;
@@ -119,6 +120,11 @@ void Position::init() {
     for (Piece pc : Pieces)
         for (Square s = SQ_A1; s <= SQ_H8; ++s)
             Zobrist::psq[pc][s] = rng.rand<Key>();
+
+    for (Piece pc : Pieces)
+        for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
+            for (Square s2 = SQ_A1; s2 <= SQ_H8; ++s2)
+                Zobrist::psq2[pc][s1][s2] = Zobrist::psq[pc][s1] ^ Zobrist::psq[pc][s2];
 
     for (File f = FILE_A; f <= FILE_H; ++f)
         Zobrist::enpassant[f] = rng.rand<Key>();
@@ -782,8 +788,10 @@ void Position::do_move(Move                      m,
         st->rule50 = 0;
     }
 
+    const Key change = Zobrist::psq2[pc][from][to];
+
     // Update hash key
-    k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    k ^= change;
 
     // Reset en passant square
     if (st->epSquare != SQ_NONE)
@@ -853,7 +861,7 @@ void Position::do_move(Move                      m,
         }
 
         // Update pawn hash key
-        st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+        st->pawnKey ^= change;
 
         // Reset rule 50 draw counter
         st->rule50 = 0;
@@ -861,10 +869,10 @@ void Position::do_move(Move                      m,
 
     else
     {
-        st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+        st->nonPawnKey[us] ^= change;
 
         if (type_of(pc) <= BISHOP)
-            st->minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+            st->minorPieceKey ^= change;
     }
 
     // Update the key with the final value

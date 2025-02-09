@@ -578,12 +578,19 @@ Value Search::Worker::search(
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
 
+    bool mayRepeat = true;
+
     // Check if we have an upcoming move that draws by repetition
-    if (!rootNode && alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    if (!rootNode && alpha < VALUE_DRAW)
     {
-        alpha = value_draw(this->nodes);
-        if (alpha >= beta)
-            return alpha;
+        uint8_t upcoming_repetition = pos.upcoming_repetition(ss->ply);
+        if (upcoming_repetition == 3)
+        {
+            alpha = value_draw(this->nodes);
+            if (alpha >= beta)
+                return alpha;
+        }
+        mayRepeat = (bool) upcoming_repetition;
     }
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
@@ -1141,7 +1148,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 16. Make the move
-        pos.do_move(move, st, givesCheck, &tt);
+        pos.do_move(move, st, givesCheck, &tt, mayRepeat);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Add extension to new depth
@@ -1474,13 +1481,21 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
 
+
+    bool mayRepeat = true;
     // Check if we have an upcoming move that draws by repetition
-    if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    if (alpha < VALUE_DRAW)
     {
-        alpha = value_draw(this->nodes);
-        if (alpha >= beta)
-            return alpha;
+        uint8_t upcoming_repetition = pos.upcoming_repetition(ss->ply);
+        if (upcoming_repetition == 3)
+        {
+            alpha = value_draw(this->nodes);
+            if (alpha >= beta)
+                return alpha;
+        }
+        mayRepeat = (bool) upcoming_repetition;
     }
+
 
     Move      pv[MAX_PLY + 1];
     StateInfo st;
@@ -1648,7 +1663,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Step 7. Make and search the move
         Piece movedPiece = pos.moved_piece(move);
 
-        pos.do_move(move, st, givesCheck, &tt);
+        pos.do_move(move, st, givesCheck, &tt, mayRepeat);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Update the current move

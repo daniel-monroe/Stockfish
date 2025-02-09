@@ -140,8 +140,8 @@ class Position {
     Piece captured_piece() const;
 
     // Doing and undoing moves
-    void do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
-    void do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt);
+    void do_move(Move m, StateInfo& newSt, const TranspositionTable* tt, bool mayRepeat);
+    void do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt, bool mayRepeat);
     void undo_move(Move m);
     void do_null_move(StateInfo& newSt, const TranspositionTable& tt);
     void undo_null_move();
@@ -162,7 +162,7 @@ class Position {
     bool  is_chess960() const;
     bool  is_draw(int ply) const;
     bool  is_repetition(int ply) const;
-    bool  upcoming_repetition(int ply) const;
+    uint8_t  upcoming_repetition(int ply) const;
     bool  has_repeated() const;
     int   rule50_count() const;
     Value non_pawn_material(Color c) const;
@@ -365,8 +365,8 @@ inline void Position::move_piece(Square from, Square to) {
     board[to]   = pc;
 }
 
-inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {
-    do_move(m, newSt, gives_check(m), tt);
+inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr, bool mayRepeat = false) {
+    do_move(m, newSt, gives_check(m), tt, mayRepeat);
 }
 
 inline StateInfo* Position::state() const { return st; }

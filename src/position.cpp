@@ -458,7 +458,7 @@ void Position::update_slider_blockers(Color c) const {
 
     st->blockersForKing[c] = 0;
     st->pinners[~c]        = 0;
-
+    
     // Snipers are sliders that attack 's' when a piece and other snipers are removed
     Bitboard snipers = ((attacks_bb<ROOK>(ksq) & pieces(QUEEN, ROOK))
                         | (attacks_bb<BISHOP>(ksq) & pieces(QUEEN, BISHOP)))
@@ -685,7 +685,8 @@ bool Position::gives_check(Move m) const {
 void Position::do_move(Move                      m,
                        StateInfo&                newSt,
                        bool                      givesCheck,
-                       const TranspositionTable* tt = nullptr) {
+                       const TranspositionTable* tt = nullptr,
+                       bool mayRepeat = true) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -888,7 +889,7 @@ void Position::do_move(Move                      m,
     // if the position was not repeated.
     st->repetition = 0;
     int end        = std::min(st->rule50, st->pliesFromNull);
-    if (end >= 4)
+    if (end >= 4 && mayRepeat)
     {
         StateInfo* stp = st->previous->previous;
         for (int i = 4; i <= end; i += 2)
@@ -1188,7 +1189,7 @@ bool Position::has_repeated() const {
 
 // Tests if the position has a move which draws by repetition.
 // This function accurately matches the outcome of is_draw() over all legal moves.
-bool Position::upcoming_repetition(int ply) const {
+uint8_t Position::upcoming_repetition(int ply) const {
 
     int j;
 
@@ -1196,6 +1197,8 @@ bool Position::upcoming_repetition(int ply) const {
 
     if (end < 3)
         return false;
+
+    bool weakRepeat = false;
 
     Key        originalKey = st->key;
     StateInfo* stp         = st->previous;
@@ -1220,16 +1223,17 @@ bool Position::upcoming_repetition(int ply) const {
             if (!((between_bb(s1, s2) ^ s2) & pieces()))
             {
                 if (ply > i)
-                    return true;
+                    return 3;
 
                 // For nodes before or at the root, check that the move is a
                 // repetition rather than a move to the current position.
                 if (stp->repetition)
-                    return true;
+                    return 3;
+                weakRepeat = true;
             }
         }
     }
-    return false;
+    return weakRepeat;
 }
 
 

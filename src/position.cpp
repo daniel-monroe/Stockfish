@@ -58,9 +58,6 @@ constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");
 constexpr Piece Pieces[] = {W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
                             B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING};
 
-constexpr Piece NonKingPieces[] = {W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN,
-                            B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN};
-
 }  // namespace
 
 
@@ -298,7 +295,7 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
 
 Key Position::material_key() const {
     Key out = 0;
-    for (Piece pc : NonKingPieces)
+    for (Piece pc : Pieces)
         out ^= Zobrist::psq[pc][pieceCount[pc]];
     return out;
 }

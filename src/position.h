@@ -41,7 +41,6 @@ class TranspositionTable;
 struct StateInfo {
 
     // Copied when making a move
-    Key    materialKey;
     Key    pawnKey;
     Key    minorPieceKey;
     Key    nonPawnKey[COLOR_NB];

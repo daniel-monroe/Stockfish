@@ -292,6 +292,14 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
     return *this;
 }
 
+Key Position::material_key() const {
+    st->materialKey = 0;
+    for (Piece pc : Pieces)
+        for (int cnt = 0; cnt < pieceCount[pc]; ++cnt)
+            st->materialKey ^= Zobrist::psq[pc][cnt];
+
+    return st->materialKey;
+}
 
 // Helper function used to set castling
 // rights given the corresponding color and the rook starting square.
@@ -373,10 +381,6 @@ void Position::set_state() const {
         st->key ^= Zobrist::side;
 
     st->key ^= Zobrist::castling[st->castlingRights];
-
-    for (Piece pc : Pieces)
-        for (int cnt = 0; cnt < pieceCount[pc]; ++cnt)
-            st->materialKey ^= Zobrist::psq[pc][cnt];
 }
 
 
@@ -776,7 +780,6 @@ void Position::do_move(Move                      m,
         remove_piece(capsq);
 
         k ^= Zobrist::psq[captured][capsq];
-        st->materialKey ^= Zobrist::psq[captured][pieceCount[captured]];
 
         // Reset rule 50 counter
         st->rule50 = 0;
@@ -842,8 +845,6 @@ void Position::do_move(Move                      m,
             // Update hash keys
             k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[promotion][to];
             st->pawnKey ^= Zobrist::psq[pc][to];
-            st->materialKey ^=
-              Zobrist::psq[promotion][pieceCount[promotion] - 1] ^ Zobrist::psq[pc][pieceCount[pc]];
 
             if (promotionType <= BISHOP)
                 st->minorPieceKey ^= Zobrist::psq[promotion][to];

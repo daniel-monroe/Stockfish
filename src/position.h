@@ -301,7 +301,6 @@ inline Key Position::adjust_key50(Key k) const {
 
 inline Key Position::pawn_key() const { return st->pawnKey; }
 
-inline Key Position::material_key() const { return st->materialKey; }
 
 inline Key Position::minor_piece_key() const { return st->minorPieceKey; }
 

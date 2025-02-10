@@ -1504,6 +1504,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     ss->inCheck        = pos.checkers();
     moveCount          = 0;
 
+
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
         thisThread->selDepth = ss->ply + 1;
@@ -1532,16 +1533,36 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Step 4. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*thisThread, pos, ss);
+
+
+    bool setStaticEval = true;
+
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
     {
+        int capturedValue = PieceValue[type_of(pos.captured_piece())];
         if (ss->ttHit)
         {
             // Never assume anything about values stored in TT
             unadjustedStaticEval = ttData.eval;
             if (!is_valid(unadjustedStaticEval))
-                unadjustedStaticEval = evaluate(pos);
+            {
+                if (capturedValue > PieceValue[PAWN]
+                    && -(ss - 1)->staticEval - capturedValue / 2 < alpha)
+                {
+                    setStaticEval  = false;
+                    ss->staticEval = bestValue = unadjustedStaticEval =
+                      -(ss - 1)->staticEval - capturedValue;
+                }
+                else
+                {
+                    // In case of null move search, use previous static eval with opposite sign
+                    unadjustedStaticEval = evaluate(pos);
+                    ss->staticEval = bestValue =
+                      to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+                }
+            }
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -1552,11 +1573,22 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            // In case of null move search, use previous static eval with opposite sign
-            unadjustedStaticEval =
-              (ss - 1)->currentMove != Move::null() ? evaluate(pos) : -(ss - 1)->staticEval;
-            ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+
+            if (capturedValue > PieceValue[PAWN]
+                && -(ss - 1)->staticEval - capturedValue / 2 < alpha)
+            {
+                setStaticEval        = false;
+                ss->staticEval = bestValue = unadjustedStaticEval =
+                  -(ss - 1)->staticEval - capturedValue;
+            }
+            else
+            {
+                // In case of null move search, use previous static eval with opposite sign
+                unadjustedStaticEval =
+                  (ss - 1)->currentMove != Move::null() ? evaluate(pos) : -(ss - 1)->staticEval;
+                ss->staticEval = bestValue =
+                  to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+            }
         }
 
         // Stand pat. Return immediately if static value is at least beta
@@ -1699,7 +1731,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // is saved as it was before adjustment by correction history.
     ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), pvHit,
                    bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, DEPTH_QS, bestMove,
-                   unadjustedStaticEval, tt.generation());
+                   setStaticEval ? unadjustedStaticEval : VALUE_NONE, tt.generation());
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 

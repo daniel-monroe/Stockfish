@@ -298,7 +298,7 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
 
 Key Position::material_key() const {
     Key out = 0;
-    for (Piece pc : Pieces)
+    for (Piece pc : NonKingPieces)
         out ^= Zobrist::psq[pc][pieceCount[pc]];
     return out;
 }

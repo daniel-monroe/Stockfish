@@ -727,7 +727,7 @@ int map_score(TBTable<DTZ>* entry, File f, int value, WDLScore wdl) {
 //
 template<typename T, typename Ret = typename T::Ret>
 CLANG_AVX512_BUG_FIX Ret
-do_probe_table(const Position& pos, T* entry, WDLScore wdl, ProbeState* result) {
+do_probe_table(const Position& pos, T* entry, WDLScore wdl, ProbeState* result, Key matkey) {
 
     Square     squares[TBPIECES];
     Piece      pieces[TBPIECES];
@@ -747,7 +747,7 @@ do_probe_table(const Position& pos, T* entry, WDLScore wdl, ProbeState* result) 
     // have KRvK, not KvKR. A position where the stronger side is white will have
     // its material key == entry->key, otherwise we have to switch the color and
     // flip the squares before to lookup.
-    bool blackStronger = (pos.material_key() != entry->key);
+    bool blackStronger = (matkey != entry->key);
 
     int flipColor   = (symmetricBlackToMove || blackStronger) * 8;
     int flipSquares = (symmetricBlackToMove || blackStronger) * 56;
@@ -1251,12 +1251,13 @@ Ret probe_table(const Position& pos, ProbeState* result, WDLScore wdl = WDLDraw)
     if (pos.count<ALL_PIECES>() == 2)  // KvK
         return Ret(WDLDraw);
 
-    TBTable<Type>* entry = TBTables.get<Type>(pos.material_key());
+    Key matkey = pos.material_key();
+    TBTable<Type>* entry = TBTables.get<Type>(matkey);
 
     if (!entry || !mapped(*entry, pos))
         return *result = FAIL, Ret();
 
-    return do_probe_table(pos, entry, wdl, result);
+    return do_probe_table(pos, entry, wdl, result, matkey);
 }
 
 // For a position where the side to move has a winning capture it is not necessary

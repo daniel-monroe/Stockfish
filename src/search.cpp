@@ -963,6 +963,9 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    // Check if we have an upcoming move that draws by repetition
+    if (!rootNode && alpha >= VALUE_DRAW) mayRepeat = pos.upcoming_repetition(ss->ply);
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())

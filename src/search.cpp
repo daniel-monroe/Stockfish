@@ -1211,6 +1211,9 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
+            if (depth > 10 && d == newDepth - 1)
+                d++;
+
             ss->reduction = newDepth - d;
 
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);

@@ -1169,6 +1169,9 @@ moves_loop:  // When in check, search starts here
 
         r -= std::abs(correctionValue) / 31568;
 
+        if (priorReduction == 1)
+            r += moveCount * 64;
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 2608 - (ttData.depth >= depth && ss->ttPv) * 1159;

@@ -84,8 +84,13 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 212;
 
+        
+    v = (v / 2) * 2 + (std::abs(psqt - positional) > 500);
+
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+
+
 
     return v;
 }

@@ -282,8 +282,8 @@ void Search::Worker::iterative_deepening() {
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
-        (ss + i)->ply       = i;
-        (ss + i)->reduction = 0;
+        (ss + i)->ply                = i;
+        (ss + i)->reduction          = 0;
         (ss - i)->reductionRemainder = 0;
     }
 
@@ -811,7 +811,7 @@ Value Search::Worker::search(
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 200)
-        depth -= (ss-1)->reductionRemainder >= 512;
+        depth -= 1 + ((ss - 1)->reductionRemainder >= 512 && depth >= 3);
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
@@ -1216,11 +1216,11 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
-            ss->reduction = newDepth - d;
+            ss->reduction          = newDepth - d;
             ss->reductionRemainder = r - 1024 * ss->reduction;
 
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
-            ss->reduction = 0;
+            value                  = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            ss->reduction          = 0;
             ss->reductionRemainder = 0;
 
 

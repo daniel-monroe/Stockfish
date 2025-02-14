@@ -277,12 +277,14 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->reduction                     = 0;
+        (ss - i)->reductionRemainder            = 0;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
         (ss + i)->ply       = i;
         (ss + i)->reduction = 0;
+        (ss - i)->reductionRemainder = 0;
     }
 
     ss->pv = pv;
@@ -809,7 +811,7 @@ Value Search::Worker::search(
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 200)
-        depth--;
+        depth -= 1 + (depth >= 3 && ss->reductionRemainder >= 512);
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
@@ -1215,9 +1217,11 @@ moves_loop:  // When in check, search starts here
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
             ss->reduction = newDepth - d;
+            ss->reductionRemainder = r - 1024 * ss->reduction;
 
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
+            ss->reductionRemainder = 0;
 
 
             // Do a full-depth search when reduced LMR search fails high

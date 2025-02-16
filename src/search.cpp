@@ -918,7 +918,7 @@ Value Search::Worker::search(
 
             // Perform a preliminary qsearch to verify that the move holds
             value =
-              -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 8, true);
+              -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 6, true);
 
 
             // If the qsearch held, perform the regular search

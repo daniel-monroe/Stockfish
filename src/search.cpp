@@ -1020,6 +1020,8 @@ moves_loop:  // When in check, search starts here
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r / 1024;
 
+            int virtualDepth = depth - (bestMove ? 1 : 0);
+
             if (capture || givesCheck)
             {
                 Piece capturedPiece = pos.piece_on(move.to_sq());
@@ -1036,8 +1038,8 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks
-                int seeHist = std::clamp(captHist / 36, -153 * depth, 134 * depth);
-                if (!pos.see_ge(move, -157 * depth - seeHist))
+                int seeHist = std::clamp(captHist / 36, -153 * virtualDepth, 134 * virtualDepth);
+                if (!pos.see_ge(move, -157 * virtualDepth - seeHist))
                     continue;
             }
             else
@@ -1048,7 +1050,7 @@ moves_loop:  // When in check, search starts here
                   + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
                 // Continuation history based pruning
-                if (history < -4107 * depth)
+                if (history < -4107 * virtualDepth)
                     continue;
 
                 history += 68 * thisThread->mainHistory[us][move.from_to()] / 32;

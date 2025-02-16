@@ -932,6 +932,13 @@ Value Search::Worker::search(
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
                                probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
 
+                if (priorCapture && prevSq == move.to_sq()) {
+                    // bonus for prior countermoves that caused the fail low
+                    Piece capturedPiece = pos.captured_piece();
+                    assert(capturedPiece != NO_PIECE);
+                    thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << -stat_malus(depth);
+                }
+
                 if (!is_decisive(value))
                     return value - (probCutBeta - beta);
             }

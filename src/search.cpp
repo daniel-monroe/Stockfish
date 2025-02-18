@@ -754,6 +754,7 @@ Value Search::Worker::search(
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
         improving             = false;
+        pos.set_check_info();
         goto moves_loop;
     }
     else if (excludedMove)
@@ -811,11 +812,7 @@ Value Search::Worker::search(
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 200)
         depth--;
 
-    // Step 7. Razoring
-    // If eval is really low, skip search entirely and return the qsearch value.
-    // For PvNodes, we must have a guard against mates being returned.
-    if (!PvNode && eval < alpha - 446 - 303 * depth * depth)
-        return qsearch<NonPV>(pos, ss, alpha, beta);
+
 
     // Step 8. Futility pruning: child node
     // The depth condition is important for mate finding.
@@ -825,6 +822,7 @@ Value Search::Worker::search(
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
+
 
     // Step 9. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
@@ -866,6 +864,15 @@ Value Search::Worker::search(
                 return nullValue;
         }
     }
+
+    // Step 7. Razoring
+    // If eval is really low, skip search entirely and return the qsearch value.
+    // For PvNodes, we must have a guard against mates being returned.
+    if (!PvNode && eval < alpha - 446 - 303 * depth * depth)
+        return qsearch<NonPV>(pos, ss, alpha, beta);
+
+    pos.set_check_info();
+
 
     improving |= ss->staticEval >= beta + 97;
 
@@ -1146,7 +1153,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 16. Make the move
-        pos.do_move(move, st, givesCheck, &tt);
+        pos.do_move(move, st, givesCheck, &tt, false);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Add extension to new depth
@@ -1585,11 +1592,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
 
+    pos.set_check_info();
+
     // Initialize a MovePicker object for the current position, and prepare to search
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &thisThread->mainHistory, &thisThread->lowPlyHistory,
                   &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1651,7 +1661,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Step 7. Make and search the move
         Piece movedPiece = pos.moved_piece(move);
 
-        pos.do_move(move, st, givesCheck, &tt);
+        pos.do_move(move, st, givesCheck, &tt, false);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Update the current move

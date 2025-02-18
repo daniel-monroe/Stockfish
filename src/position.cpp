@@ -685,10 +685,8 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 // If a pointer to the TT table is passed, the entry for the new position
 // will be prefetched
-void Position::do_move(Move                      m,
-                       StateInfo&                newSt,
-                       bool                      givesCheck,
-                       const TranspositionTable* tt = nullptr) {
+void Position::do_move(
+  Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt, bool updateCheck) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -884,7 +882,8 @@ void Position::do_move(Move                      m,
     sideToMove = ~sideToMove;
 
     // Update king attacks used for fast check detection
-    set_check_info();
+    if (updateCheck)
+        set_check_info();
 
     // Calculate the repetition info. It is the ply distance from the previous
     // occurrence of the same position, negative in the 3-fold case, or zero

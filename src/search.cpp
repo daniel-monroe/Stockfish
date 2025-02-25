@@ -1481,6 +1481,17 @@ moves_loop:  // When in check, search starts here
         update_correction_history(pos, ss, *thisThread, bonus);
     }
 
+    // Use static evaluation difference to improve quiet move ordering
+    if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
+    {
+        int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1906, 1450) + 638;
+        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus * 1136 / 4096;
+        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
+            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+              << bonus * 1195 / 4096;
+    }
+
+
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
     return bestValue;

@@ -816,7 +816,7 @@ Value Search::Worker::search(
               << bonus * 1195 / 1024;
     }
 
-    if ((ss - 1)->currentMove == Move::null() && ss->staticEval >= beta + 100 * depth)
+    if ((ss - 1)->currentMove == Move::null() && eval >= beta + 100 * depth)
         return beta;
 
     // Set up the improving flag, which is true if current static evaluation is

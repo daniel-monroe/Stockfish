@@ -1054,7 +1054,11 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks
-                int seeHist = std::clamp(captHist / 32, -138 * depth, 135 * depth);
+                int seeHist = std::clamp(captHist / 32
+                                           - 100
+                                               * (!givesCheck && type_of(capturedPiece) == PAWN
+                                                  && type_of(pos.piece_on(move.from_sq())) > BISHOP),
+                             -138 * depth, 135 * depth);
                 if (!pos.see_ge(move, -154 * depth - seeHist))
                     continue;
             }

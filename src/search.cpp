@@ -499,8 +499,7 @@ void Search::Worker::iterative_deepening() {
             int nodesEffort = rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
             double fallingEval =
-              (11.396 + 2.035 * (mainThread->bestPreviousAverageScore - bestValue)
-               + 0.968 * (mainThread->iterValue[iterIdx] - bestValue))
+              (11.396 + 3 * (mainThread->bestPreviousAverageScore - bestValue))
               / 100.0;
             fallingEval = std::clamp(fallingEval, 0.5786, 1.6752);
 

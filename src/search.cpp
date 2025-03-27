@@ -102,7 +102,7 @@ int risk_tolerance(const Position& pos, Value v) {
         return 644800 * x / ((x * x + 3 * y * y) * y);
     };
 
-    int m = pos.count<PAWN>() + pos.non_pawn_material() / 300;
+    int m = pos.count<PAWN>() + pos.non_pawn_material() / 250;
 
     // a and b are the crude approximation of the wdl model.
     // The win rate is: 1/(1+exp((a-v)/b))

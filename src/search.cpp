@@ -703,7 +703,7 @@ Value Search::Worker::search(
                             : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
-    if (!excludedMove && (ttData.bound & BOUND_UPPER) && ttData.value <= alpha && ttData.depth > DEPTH_QS)
+    if (!excludedMove && (ttData.bound & BOUND_UPPER) && ttData.value <= alpha - 20 && ttData.depth > 2)
         ss->ttPv = true;
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 

@@ -1051,7 +1051,7 @@ moves_loop:  // When in check, search starts here
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search
-            int lmrDepth = newDepth - r / 1024;
+            int lmrDepth = newDepth - r / 1024 - bool(bestMove);
 
             if (capture || givesCheck)
             {
@@ -1088,7 +1088,7 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3593;
 
-                Value futilityValue = ss->staticEval + (bestMove ? 48 : 146) + 116 * lmrDepth
+                Value futilityValue = ss->staticEval + 148 + 116 * lmrDepth
                                     + 103 * (bestValue < ss->staticEval - 128);
 
                 // Futility pruning: parent node

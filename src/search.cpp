@@ -1204,6 +1204,10 @@ moves_loop:  // When in check, search starts here
 
         r += 306 - moveCount * 34;
 
+        if (priorReduction >= 1 && ss->staticEval + (ss - 1)->staticEval > 188 && ttData.move && moveCount > 1)
+            r -= 1024;
+
+
         r -= std::abs(correctionValue) / 29696;
 
         if (PvNode && std::abs(bestValue) <= 2000)

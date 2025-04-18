@@ -860,7 +860,7 @@ Value Search::Worker::search(
                - (ss - 1)->statScore / 301 + 37 + ((eval - beta) / 8)
                - std::abs(correctionValue) / 139878
              >= beta
-        && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
+        && eval >= beta && (!ttData.move || ttCapture || depth == 1) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
 
     // Step 9. Null move search with verification search

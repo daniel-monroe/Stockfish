@@ -720,6 +720,14 @@ Value Search::Worker::search(
             if (!ttCapture)
                 update_quiet_histories(pos, ss, *this, ttData.move,
                                        std::min(120 * depth - 75, 1241));
+            else
+            {
+                Piece capturedPiece = pos.piece_on(ttData.move.to_sq());
+                thisThread->captureHistory[pos.piece_on(ttData.move.from_sq())][ttData.move.to_sq()]
+                                          [type_of(capturedPiece)]
+                  << std::min(120 * depth - 75, 1241);
+            }
+            
 
             // Extra penalty for early quiet moves of the previous ply
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 3 && !priorCapture)

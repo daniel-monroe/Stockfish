@@ -1411,11 +1411,9 @@ moves_loop:  // When in check, search starts here
                     {
                         depth -= 2;
                     }
-                    if (move == ttData.move && depth <= 2)
+                    if (move == ttData.move && depth <= 5)
                         mp.skip_quiet_moves();
 
-
-                    
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta

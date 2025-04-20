@@ -1447,11 +1447,7 @@ moves_loop:  // When in check, search starts here
     {
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
                          bestMove == ttData.move, moveCount);
-        if (!PvNode)
-        {
-            int bonus = (ttData.move == move) ? 800 : -870;
-            ttMoveHistory << bonus;
-        }
+        ttMoveHistory << (ttData.move == bestMove ? 800 : -870);
     }
 
     // Bonus for prior quiet countermove that caused the fail low

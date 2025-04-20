@@ -1590,6 +1590,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER)))
         return ttData.value;
 
+    if (PvNode && ttData.depth >= 3 && is_valid(ttData.value) && (ttData.bound & BOUND_UPPER)
+        && ttData.value < alpha - 400)
+        return ttData.value;
+
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)

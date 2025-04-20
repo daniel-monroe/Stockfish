@@ -1189,7 +1189,7 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
             }
-            else if (move == ttData.move && pos.see_ge(ttData.move, 1) && (ttData.bound & BOUND_LOWER))
+            else if (move == ttData.move && pos.see_ge(ttData.move, 1) && (ttData.bound & BOUND_LOWER) && move.to_sq() == (ss-1)->currentMove.to_sq())
             {
                 extension = 1;
             }

@@ -92,6 +92,28 @@ class StatsEntry {
     }
 };
 
+template<typename T, int D>
+class CorrEntry {
+
+    static_assert(std::is_arithmetic_v<T>, "Not an arithmetic type");
+    static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
+
+    T entry;
+
+   public:
+    CorrEntry& operator=(const T& v) {
+        entry = v;
+        return *this;
+    }
+    operator const T&() const { return entry; }
+
+    void operator<<(int bonus) {
+        // Make sure that bonus is in range [-D, D]
+        entry = std::clamp(entry + bonus, -D, D);
+        assert(std::abs(entry) <= D);
+    }
+};
+
 enum StatsType {
     NoCaptures,
     Captures
@@ -99,6 +121,9 @@ enum StatsType {
 
 template<typename T, int D, std::size_t... Sizes>
 using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
+template<typename T, int D, std::size_t... Sizes>
+using Corrs = MultiArray<CorrEntry<T, D>, Sizes...>;
+
 
 // ButterflyHistory records how often quiet moves have been successful or unsuccessful
 // during the current search, and is used for reduction and move ordering decisions.
@@ -142,12 +167,12 @@ namespace Detail {
 
 template<CorrHistType>
 struct CorrHistTypedef {
-    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRECTION_HISTORY_SIZE, COLOR_NB>;
+    using type = Corrs<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRECTION_HISTORY_SIZE, COLOR_NB>;
 };
 
 template<>
 struct CorrHistTypedef<PieceTo> {
-    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, PIECE_NB, SQUARE_NB>;
+    using type = Corrs<std::int16_t, CORRECTION_HISTORY_LIMIT, PIECE_NB, SQUARE_NB>;
 };
 
 template<>
@@ -158,7 +183,7 @@ struct CorrHistTypedef<Continuation> {
 template<>
 struct CorrHistTypedef<NonPawn> {
     using type =
-      Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRECTION_HISTORY_SIZE, COLOR_NB, COLOR_NB>;
+      Corrs<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRECTION_HISTORY_SIZE, COLOR_NB, COLOR_NB>;
 };
 
 }

@@ -31,6 +31,7 @@
 #include "misc.h"
 #include "position.h"
 
+
 namespace Stockfish {
 
 constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
@@ -85,9 +86,8 @@ class StatsEntry {
 
     void operator<<(int bonus) {
         // Make sure that bonus is in range [-D, D]
-        int clampedBonus = std::clamp(bonus, -D, D);
-        entry += clampedBonus - entry * std::abs(clampedBonus) / D;
-
+        assert(std::abs(bonus) <= D);
+        entry += bonus - entry * std::abs(bonus) / D;
         assert(std::abs(entry) <= D);
     }
 };

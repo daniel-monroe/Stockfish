@@ -188,7 +188,7 @@ void MovePicker::score() {
             {
               // everything threatened by the knight after it is moved
               Bitboard threatened = attacks_bb<KNIGHT>(to) & pos.pieces(~us, ROOK, QUEEN, KING);
-              if ((threatened & (threatened - 1)) != 0)
+              if ((threatened & (threatened - 1)) != 0 && pos.see_ge(m, 0))
                   m.value += 30000;
             }
 

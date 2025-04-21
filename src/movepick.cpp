@@ -155,6 +155,8 @@ void MovePicker::score() {
             PieceType pt   = type_of(pc);
             Square    from = m.from_sq();
             Square    to   = m.to_sq();
+            Color     us   = pos.side_to_move();
+
 
             // histories
             m.value = 2 * (*mainHistory)[pos.side_to_move()][m.from_to()];
@@ -168,6 +170,8 @@ void MovePicker::score() {
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
 
+
+
             // bonus for escaping from capture
             m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 51700
                                                   : pt == ROOK && !(to & threatenedByMinor) ? 25600
@@ -179,6 +183,14 @@ void MovePicker::score() {
             m.value -= (pt == QUEEN && bool(to & threatenedByRook)   ? 49000
                         : pt == ROOK && bool(to & threatenedByMinor) ? 24335
                                                                      : 0);
+
+            if (pt == KNIGHT)
+            {
+              // everything threatened by the knight after it is moved
+              Bitboard threatened = attacks_bb<KNIGHT>(to) & pos.pieces(~us, ROOK, QUEEN, KING);
+              if (threatened)
+                  m.value += 10000;
+            }
 
             if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + 2 * ply);

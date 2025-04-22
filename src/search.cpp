@@ -640,6 +640,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
+    bool  extendPv;
     int   priorReduction = (ss - 1)->reduction;
     (ss - 1)->reduction  = 0;
     Piece movedPiece;
@@ -1021,8 +1022,9 @@ moves_loop:  // When in check, search starts here
         }
         if (PvNode)
             (ss + 1)->pv = nullptr;
-
+        
         extension  = 0;
+        extendPv   = false;
         capture    = pos.capture_stage(move);
         movedPiece = pos.moved_piece(move);
         givesCheck = pos.gives_check(move);
@@ -1289,6 +1291,9 @@ moves_loop:  // When in check, search starts here
             }
             else if (value > alpha && value < bestValue + 9)
                 newDepth--;
+
+            if (value >= beta + 100 && std::abs(beta) < 300)
+                extendPv = true;
         }
 
         // Step 18. Full-depth search when LMR is skipped
@@ -1314,7 +1319,7 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && thisThread->rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth + extendPv, false);
         }
 
         // Step 19. Undo move

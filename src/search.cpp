@@ -858,7 +858,7 @@ Value Search::Worker::search(
     if (!ss->ttPv && depth < 14
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 301 + 37 + ((eval - beta) / 8)
-               - std::abs(correctionValue) / 139878
+               - std::abs(correctionValue) / 139878 + 70 * (ss->cutoffCnt > 3)
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;

@@ -1171,7 +1171,10 @@ moves_loop:  // When in check, search starts here
                 // singular (multiple moves fail high), and we can prune the whole
                 // subtree by returning a softbound.
                 else if (value >= beta && !is_decisive(value))
+                {
+                    ss->cutoffCnt++;
                     return value;
+                }
 
                 // Negative extensions
                 // If other moves failed high over (ttValue - margin) without the

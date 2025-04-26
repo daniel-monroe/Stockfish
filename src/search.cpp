@@ -1213,6 +1213,10 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
+        
+        if (PvNode && !bestMove)
+            r -= 2048;
+
         r += 306 - moveCount * 34;
 
         r -= std::abs(correctionValue) / 29696;

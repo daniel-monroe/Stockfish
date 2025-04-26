@@ -70,19 +70,6 @@ namespace {
 // so changing them or adding conditions that are similar requires
 // tests at these types of time controls.
 
-// Futility margin
-Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
-    Value futilityMult       = 110 - 25 * noTtCutNode;
-    Value improvingDeduction = improving * futilityMult * 2;
-    Value worseningDeduction = oppWorsening * futilityMult / 3;
-
-    return futilityMult * d - improvingDeduction - worseningDeduction;
-}
-
-constexpr int futility_move_count(bool improving, Depth depth) {
-    return (3 + depth * depth) / (2 - improving);
-}
-
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
@@ -856,9 +843,9 @@ Value Search::Worker::search(
     // Step 8. Futility pruning: child node
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 14
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-               - (ss - 1)->statScore / 301 + 37 + ((eval - beta) / 8)
-               - std::abs(correctionValue) / 139878
+        && eval - (98 - 22 * (cutNode && !ss->ttHit)) * depth + improving * 180
+               + opponentWorsening * 30 - (ss - 1)->statScore / 339
+               - std::abs(correctionValue) / 157363
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
@@ -1030,9 +1017,10 @@ moves_loop:  // When in check, search starts here
         // Calculate new depth for this move
         newDepth = depth - 1;
 
-        int delta = beta - alpha;
-
-        Depth r = reduction(improving, depth, moveCount, delta);
+        int   delta          = beta - alpha;
+        int   reductionScale = reductions[depth] * reductions[moveCount];
+        Depth r =
+          reductionScale - delta * 764 / rootDelta + !improving * reductionScale * 191 / 512 + 1087;
 
         r -= 32 * moveCount;
 
@@ -1047,7 +1035,7 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold
-            if (moveCount >= futility_move_count(improving, depth))
+            if (moveCount >= (3 + depth * depth) / (2 - improving))
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search
@@ -1780,11 +1768,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
     return bestValue;
-}
-
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
-    int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale - delta * 764 / rootDelta + !i * reductionScale * 191 / 512 + 1087;
 }
 
 // elapsed() returns the time elapsed since the search started. If the

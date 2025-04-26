@@ -113,14 +113,7 @@ Value to_corrected_static_eval(const Value v, const int cv) {
 
 int adaptive_probcut_margin(Depth depth) {
     // Base margin
-    constexpr int base = 180;
-
-    // Approximate log2(depth) using a fast lookup table
-    static constexpr int logTable[32] = {0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-                                         4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
-
-    int logDepth = logTable[std::min(depth, 31)];
-    return base + logDepth * 60 + std::min(10, (depth - 16) * 2);
+    return std::min(180 + depth * 20, 420);
 };
 
 void update_correction_history(const Position& pos,

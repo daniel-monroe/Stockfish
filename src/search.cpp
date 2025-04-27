@@ -1835,7 +1835,7 @@ TimePoint Search::Worker::elapsed() const {
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
 Value Search::Worker::evaluate(const Position& pos, Stack* ss) {
-    if ((ss - 1)->lowSeeGe && PieceValue[pos.captured_piece()] > 400 && !Eval::use_smallnet(pos))
+    if ((ss - 1)->lowSeeGe && PieceValue[pos.captured_piece()] > 400 && Eval::use_smallnet(pos))
         return -(ss - 1)->staticEval - PieceValue[pos.captured_piece()];
 
     return Eval::evaluate(networks[numaAccessToken], pos, accumulatorStack, refreshTable,

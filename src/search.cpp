@@ -1282,9 +1282,10 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
 
 
-            Depth d = std::max(1, std::min(newDepth - r / 1024,
-                                           newDepth + !allNode + (PvNode && !bestMove)))
-                    + (!cutNode && (ss - 1)->isPvNode && moveCount < 8);
+            Depth d =
+              std::max(1, std::min(newDepth - r / 1024,
+                                   newDepth + (!allNode && moveCount < 8) + (PvNode && !bestMove)))
+              + (!cutNode && (ss - 1)->isPvNode && moveCount < 8);
 
             ss->reduction = newDepth - d;
 

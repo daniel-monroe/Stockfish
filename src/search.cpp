@@ -1922,7 +1922,7 @@ void update_all_stats(const Position&      pos,
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
         {
-            update_quiet_histories(pos, ss, workerThread, move, -std::max(malus - 20 * i, 0) * 1246 / 1024);
+            update_quiet_histories(pos, ss, workerThread, move, -(malus + 20 * i) * 1246 / 1024);
             i++;
         }
     }

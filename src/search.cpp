@@ -1302,6 +1302,9 @@ moves_loop:  // When in check, search starts here
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
+                if (newDepth < depth && value > beta + 200 + 10 * newDepth)
+                  newDepth++;
+
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 

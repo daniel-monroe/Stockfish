@@ -77,6 +77,7 @@ struct Stack {
     int                         reduction;
     bool                        isTTMove;
     bool                        isPvNode;
+    bool                        lowSeeGe;
 };
 
 
@@ -323,7 +324,7 @@ class Worker {
     TimePoint elapsed() const;
     TimePoint elapsed_time() const;
 
-    Value evaluate(const Position&);
+    Value evaluate(const Position&, Stack* ss);
 
     LimitsType limits;
 

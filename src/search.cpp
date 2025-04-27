@@ -1836,7 +1836,7 @@ TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elaps
 
 Value Search::Worker::evaluate(const Position& pos, Stack* ss) {
     if ((ss - 1)->lowSeeGe && PieceValue[pos.captured_piece()] > 400)
-        return -(ss - 1)->staticEval - PieceValue[pos.captured_piece()];
+        return -(ss - 1)->staticEval - PieceValue[pos.captured_piece()] + 50;
 
     return Eval::evaluate(networks[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);

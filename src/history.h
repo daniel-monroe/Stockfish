@@ -88,7 +88,7 @@ class StatsEntry {
         int clampedBonus = std::clamp(bonus, -D, D);
         if (D == 1024)
             //correction
-            entry += clampedBonus - entry * std::abs(clampedBonus) * 2 / D;
+            entry += clampedBonus - entry * std::abs(clampedBonus) / 2048;
         else
             //correction
             entry += clampedBonus - entry * std::abs(clampedBonus) / D;

@@ -1492,7 +1492,7 @@ moves_loop:  // When in check, search starts here
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << std::min(scaledBonus * 1040 / 32768, 6000);
+              << std::min(scaledBonus * 1040 / 32768, 4000);
     }
 
     // Bonus for prior capture countermove that caused the fail low

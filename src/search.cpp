@@ -173,7 +173,8 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
                       Move                 TTMove,
-                      int                  moveCount);
+                      int                  moveCount,
+                      bool                 bestMoveCut);
 
 }  // namespace
 
@@ -646,6 +647,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
+    bool  bestMoveCut;
     int   priorReduction;
     Piece movedPiece;
 
@@ -658,6 +660,7 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->earlyCut       = true;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -999,6 +1002,8 @@ moves_loop:  // When in check, search starts here
     value = bestValue;
 
     int moveCount = 0;
+
+    ss->earlyCut = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1406,7 +1411,8 @@ moves_loop:  // When in check, search starts here
 
             if (value + inc > alpha)
             {
-                bestMove = move;
+                bestMove    = move;
+                bestMoveCut = (ss + 1)->earlyCut;
 
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
@@ -1460,7 +1466,7 @@ moves_loop:  // When in check, search starts here
     else if (bestMove)
     {
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
-                         ttData.move, moveCount);
+                         ttData.move, moveCount, bestMoveCut);
         if (!PvNode)
         {
             int bonus = ss->isTTMove ? 800 : -879;
@@ -1890,7 +1896,8 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth,
                       Move                 ttMove,
-                      int                  moveCount) {
+                      int                  moveCount,
+                      bool                 bestMoveCut) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
@@ -1898,6 +1905,8 @@ void update_all_stats(const Position&      pos,
 
     int bonus = std::min(143 * depth - 89, 1496) + 302 * (bestMove == ttMove);
     int malus = std::min(737 * depth - 179, 3141) - 30 * moveCount;
+
+    bonus = bonus * (bestMoveCut ? 3 : 5) / 4;
 
     if (!pos.capture_stage(bestMove))
     {

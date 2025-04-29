@@ -722,7 +722,7 @@ Value Search::Worker::search(
         && (cutNode == (ttData.value >= beta) || depth > 5))
     {
 
-        
+
         // If ttMove is quiet, update move sorting heuristics on TT hit
         if (ttData.move && ttData.value >= beta)
         {
@@ -742,22 +742,26 @@ Value Search::Worker::search(
         {
             if (depth >= 8 && ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
                 && !is_decisive(ttData.value))
-          {
-              do_move(pos, ttData.move, st);
-              Key nextPosKey = pos.key();
-              auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
-              ttDataNext.value = value_from_tt(ttDataNext.value, ss->ply + 1, pos.rule50_count());
-              undo_move(pos, ttData.move);
-              if (ttData.value >= beta && -ttDataNext.value >= beta)
-                return ttData.value;
-              if (ttData.value <= beta && -ttDataNext.value <= beta)
-                  return ttData.value;
-          }
-          else
-          {
-              return ttData.value;
-          }
+            {
+                do_move(pos, ttData.move, st);
+                Key nextPosKey                             = pos.key();
+                auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+                ttDataNext.value =
+                  ttHitNext ? value_from_tt(ttDataNext.value, ss->ply + 1, pos.rule50_count())
+                            : VALUE_NONE;
+                undo_move(pos, ttData.move);
 
+                if (!is_valid(ttDataNext.value))
+										return ttData.value;
+                if (ttData.value >= beta && -ttDataNext.value >= beta)
+                    return ttData.value;
+                if (ttData.value <= alpha && -ttDataNext.value <= alpha)
+                    return ttData.value;
+            }
+            else
+            {
+                return ttData.value;
+            }
         }
     }
 

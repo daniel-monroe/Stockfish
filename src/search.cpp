@@ -721,6 +721,8 @@ Value Search::Worker::search(
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
         && (cutNode == (ttData.value >= beta) || depth > 5))
     {
+
+        
         // If ttMove is quiet, update move sorting heuristics on TT hit
         if (ttData.move && ttData.value >= beta)
         {
@@ -737,7 +739,25 @@ Value Search::Worker::search(
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
-            return ttData.value;
+        {
+          if (depth >= 8 && ttData.move && !is_decisive(ttData.value))
+          {
+              do_move(pos, ttData.move, st);
+              Key nextPosKey = pos.key();
+              auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+              ttDataNext.value = value_from_tt(ttDataNext.value, ss->ply + 1, pos.rule50_count());
+              undo_move(pos, ttData.move);
+              if (ttData.value >= beta && -ttDataNext.value >= beta)
+                return ttData.value;
+              if (ttData.value <= beta && -ttDataNext.value <= beta)
+                  return ttData.value;
+          }
+          else
+          {
+              return ttData.value;
+          }
+
+        }
     }
 
     // Step 5. Tablebases probe

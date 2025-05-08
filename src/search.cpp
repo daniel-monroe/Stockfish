@@ -1212,37 +1212,7 @@ moves_loop:  // When in check, search starts here
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
           &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
-        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
-
-        // Decrease reduction for PvNodes (*Scaler)
-        if (ss->ttPv)
-            r -= 2437 + PvNode * 926 + (ttData.value > alpha) * 901
-               + (ttData.depth >= depth) * (943 + cutNode * 1180);
-
-        // These reduction adjustments have no proven non-linear scaling
-
-        r += 316;  // Base reduction offset to compensate for other tweaks
-        r -= moveCount * 66;
-        r -= std::abs(correctionValue) / 28047;
-
-        if (PvNode && std::abs(bestValue) <= 2078)
-            r -= risk_tolerance(bestValue);
-
-        // Increase reduction for cut nodes
-        if (cutNode)
-            r += 2864 + 966 * !ttData.move;
-
-        // Increase reduction if ttMove is a capture but the current move is not a capture
-        if (ttCapture && !capture)
-            r += 1210 + (depth < 8) * 963;
-
-        // Increase reduction if next ply has a lot of fail high
-        if ((ss + 1)->cutoffCnt > 2)
-            r += 1036 + allNode * 848;
-
-        // For first picked move (ttMove) reduce reduction
-        else if (ss->isTTMove)
-            r -= 2006;
+        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;  
 
         if (capture)
             ss->statScore =
@@ -1257,8 +1227,6 @@ moves_loop:  // When in check, search starts here
                           + (*contHist[0])[movedPiece][move.to_sq()]
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3206;
 
-        // Decrease/increase reduction for moves with a good/bad history
-        r -= ss->statScore * 826 / 8192;
 
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)

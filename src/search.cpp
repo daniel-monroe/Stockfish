@@ -813,6 +813,7 @@ Value Search::Worker::search(
         }
     }
 
+
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*thisThread, pos, ss);
@@ -890,7 +891,26 @@ Value Search::Worker::search(
                                  (ss - 1)->statScore, std::abs(correctionValue))
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
-        return beta + (eval - beta) / 3;
+    {
+
+        if (ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
+            && !is_decisive(ttData.value))
+        {
+            Key nextPosKey                             = pos.key_after(ttData.move);
+            auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+
+            if (ttHitNext)
+            {
+                Value nextValue = value_from_tt(ttDataNext.value, ss->ply + 1, pos.rule50_count());
+                if (!is_valid(nextValue) || (-nextValue >= beta))
+                    return beta + (eval - beta) / 3;
+            }
+        }
+        else
+        {
+            return beta + (eval - beta) / 3;
+        }
+    }
 
     // Step 9. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta

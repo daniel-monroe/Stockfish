@@ -1149,53 +1149,68 @@ moves_loop:  // When in check, search starts here
                 && is_valid(ttData.value) && !is_decisive(ttData.value)
                 && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
             {
-                Value singularBeta  = ttData.value - (58 + 76 * (ss->ttPv && !PvNode)) * depth / 57;
-                Depth singularDepth = newDepth / 2;
+                
+                do_move(pos, ttData.move, st);
+                Key nextPosKey                             = pos.key();
+                auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+                //ttDataNext.value =
+                //  ttHitNext ? value_from_tt(ttDataNext.value, ss->ply + 1, pos.rule50_count())
+                //            : VALUE_NONE;
+                undo_move(pos, ttData.move);
 
-                ss->excludedMove = move;
-                value =
-                  search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-                ss->excludedMove = Move::none();
 
-                if (value < singularBeta)
+                if (!ttHitNext || ttDataNext.bound != BOUND_LOWER)
                 {
-                    int corrValAdj1  = std::abs(correctionValue) / 248400;
-                    int corrValAdj2  = std::abs(correctionValue) / 249757;
-                    int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
-                                     - 997 * ttMoveHistory / 131072;
-                    int tripleMargin =
-                      84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv - corrValAdj2;
 
-                    extension = 1 + (value < singularBeta - doubleMargin)
-                              + (value < singularBeta - tripleMargin);
+                    Value singularBeta =
+                      ttData.value - (58 + 76 * (ss->ttPv && !PvNode)) * depth / 57;
+                    Depth singularDepth = newDepth / 2;
 
-                    depth++;
+                    ss->excludedMove = move;
+                    value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth,
+                                          cutNode);
+                    ss->excludedMove = Move::none();
+
+                    if (value < singularBeta)
+                    {
+                        int corrValAdj1  = std::abs(correctionValue) / 248400;
+                        int corrValAdj2  = std::abs(correctionValue) / 249757;
+                        int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
+                                         - 997 * ttMoveHistory / 131072;
+                        int tripleMargin =
+                          84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv - corrValAdj2;
+
+                        extension = 1 + (value < singularBeta - doubleMargin)
+                                  + (value < singularBeta - tripleMargin);
+
+                        depth++;
+                    }
+
+                    // Multi-cut pruning
+                    // Our ttMove is assumed to fail high based on the bound of the TT entry,
+                    // and if after excluding the ttMove with a reduced search we fail high
+                    // over the original beta, we assume this expected cut-node is not
+                    // singular (multiple moves fail high), and we can prune the whole
+                    // subtree by returning a softbound.
+                    else if (value >= beta && !is_decisive(value))
+                        return value;
+
+                    // Negative extensions
+                    // If other moves failed high over (ttValue - margin) without the
+                    // ttMove on a reduced search, but we cannot do multi-cut because
+                    // (ttValue - margin) is lower than the original beta, we do not know
+                    // if the ttMove is singular or can do a multi-cut, so we reduce the
+                    // ttMove in favor of other moves based on some conditions:
+
+                    // If the ttMove is assumed to fail high over current beta
+                    else if (ttData.value >= beta)
+                        extension = -3;
+
+                    // If we are on a cutNode but the ttMove is not assumed to fail high
+                    // over current beta
+                    else if (cutNode)
+                        extension = -2;
                 }
-
-                // Multi-cut pruning
-                // Our ttMove is assumed to fail high based on the bound of the TT entry,
-                // and if after excluding the ttMove with a reduced search we fail high
-                // over the original beta, we assume this expected cut-node is not
-                // singular (multiple moves fail high), and we can prune the whole
-                // subtree by returning a softbound.
-                else if (value >= beta && !is_decisive(value))
-                    return value;
-
-                // Negative extensions
-                // If other moves failed high over (ttValue - margin) without the
-                // ttMove on a reduced search, but we cannot do multi-cut because
-                // (ttValue - margin) is lower than the original beta, we do not know
-                // if the ttMove is singular or can do a multi-cut, so we reduce the
-                // ttMove in favor of other moves based on some conditions:
-
-                // If the ttMove is assumed to fail high over current beta
-                else if (ttData.value >= beta)
-                    extension = -3;
-
-                // If we are on a cutNode but the ttMove is not assumed to fail high
-                // over current beta
-                else if (cutNode)
-                    extension = -2;
             }
         }
 

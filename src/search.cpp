@@ -721,8 +721,6 @@ Value Search::Worker::search(
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
         && (cutNode == (ttData.value >= beta) || depth > 5))
     {
-
-
         // If ttMove is quiet, update move sorting heuristics on TT hit
         if (ttData.move && ttData.value >= beta)
         {
@@ -740,22 +738,19 @@ Value Search::Worker::search(
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
         {
-            if (depth >= 8 && ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
+
+            if (depth >= 4 && ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
                 && !is_decisive(ttData.value))
             {
-                do_move(pos, ttData.move, st);
-                Key nextPosKey                             = pos.key();
+                Key nextPosKey                             = pos.key_after(ttData.move);
                 auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
                 ttDataNext.value =
                   ttHitNext ? value_from_tt(ttDataNext.value, ss->ply + 1, pos.rule50_count())
                             : VALUE_NONE;
-                undo_move(pos, ttData.move);
 
                 if (!is_valid(ttDataNext.value))
-										return ttData.value;
-                if (ttData.value >= beta && -ttDataNext.value >= beta)
                     return ttData.value;
-                if (ttData.value <= alpha && -ttDataNext.value <= alpha)
+                if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
                     return ttData.value;
             }
             else

@@ -138,6 +138,7 @@ class Position {
     void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
     void       undo_null_move();
 
+
     // Static Exchange Evaluation
     bool see_ge(Move m, int threshold = 0) const;
 
@@ -147,6 +148,8 @@ class Position {
     Key pawn_key() const;
     Key minor_piece_key() const;
     Key non_pawn_key(Color c) const;
+    Key key_after(Move m) const;
+
 
     // Other properties of the position
     Color side_to_move() const;
@@ -289,6 +292,7 @@ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
 
 inline Key Position::key() const { return adjust_key50<false>(st->key); }
+
 
 template<bool AfterMove>
 inline Key Position::adjust_key50(Key k) const {

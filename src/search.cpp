@@ -740,7 +740,8 @@ Value Search::Worker::search(
         {
 
             if (depth >= 4 && ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
-                && !is_decisive(ttData.value))
+                && !is_decisive(ttData.value) && ttData.move.type_of() != EN_PASSANT
+                && ttData.move.type_of() != CASTLING && ttData.move.type_of() != PROMOTION)
             {
                 Key nextPosKey                             = pos.key_after(ttData.move);
                 auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);

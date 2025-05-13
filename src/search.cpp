@@ -739,7 +739,7 @@ Value Search::Worker::search(
         if (pos.rule50_count() < 90)
         {
 
-            if (depth >= 4 && ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
+            if (ttData.move && pos.legal(ttData.move) && pos.pseudo_legal(ttData.move)
                 && !is_decisive(ttData.value) && ttData.move.type_of() != EN_PASSANT
                 && ttData.move.type_of() != CASTLING && ttData.move.type_of() != PROMOTION)
             {

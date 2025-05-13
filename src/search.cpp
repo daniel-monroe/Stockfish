@@ -1224,6 +1224,8 @@ moves_loop:  // When in check, search starts here
         r += 316;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 28047;
+        if (eval != ss->staticEval && !ttCapture && !ss->inCheck)
+          r += 200 - std::clamp(std::abs(ss->staticEval - eval) * 3, 0, 768);
 
         if (PvNode && std::abs(bestValue) <= 2078)
             r -= risk_tolerance(bestValue);

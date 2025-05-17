@@ -825,18 +825,18 @@ Value Search::Worker::search(
     // The depth condition is important for mate finding.
     {
         auto futility_margin = [&](Depth d) {
-            Value futilityMult       = 105 - 23 * (cutNode && !ss->ttHit);
+            Value futilityMult       = 93 - 20 * (cutNode && !ss->ttHit);
             Value improvingDeduction = improving * futilityMult * 2;
             Value worseningDeduction = opponentWorsening * futilityMult / 3;
 
             return futilityMult * d           //
                  - improvingDeduction         //
                  - worseningDeduction         //
-                 + (ss - 1)->statScore / 335  //
-                 + std::abs(correctionValue) / 149902;
+                 + (ss - 1)->statScore / 377  //
+                 + std::abs(correctionValue) / 164242;
         };
 
-        if (!ss->ttPv && depth < 14 && eval + (eval - beta) / 8 - futility_margin(depth) >= beta
+        if (!ss->ttPv && depth < 14 && eval - futility_margin(depth) >= beta
             && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
             return beta + (eval - beta) / 3;
     }

@@ -1096,6 +1096,9 @@ moves_loop:  // When in check, search starts here
                 // Prune moves with negative SEE
                 if (!pos.see_ge(move, -27 * lmrDepth * lmrDepth))
                     continue;
+
+                if (type_of(movedPiece) != PAWN)
+                    r += std::clamp(pos.rule50_count() - 5, 0, 50) * 50;
             }
         }
 

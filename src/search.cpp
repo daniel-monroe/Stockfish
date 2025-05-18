@@ -1184,6 +1184,9 @@ moves_loop:  // When in check, search starts here
             r -= 2437 + PvNode * 926 + (ttData.value > alpha) * 901
                + (ttData.depth >= depth) * (943 + cutNode * 1180);
 
+        else if ((ss - 1)->isPvNode)
+            r -= 1000;
+
         // These reduction adjustments have no proven non-linear scaling
 
         r += 316;  // Base reduction offset to compensate for other tweaks

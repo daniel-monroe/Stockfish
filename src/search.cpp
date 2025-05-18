@@ -1111,7 +1111,7 @@ moves_loop:  // When in check, search starts here
         // and lower extension margins scale well.
 
         if (!rootNode && move == ttData.move && !excludedMove
-            && depth >= 6 - (thisThread->completedDepth > 27) + ss->ttPv && is_valid(ttData.value)
+            && depth >= 4 && is_valid(ttData.value)
             && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
             && ttData.depth >= depth - 3)
         {
@@ -1124,18 +1124,25 @@ moves_loop:  // When in check, search starts here
 
             if (value < singularBeta)
             {
-                int corrValAdj1  = std::abs(correctionValue) / 248400;
-                int corrValAdj2  = std::abs(correctionValue) / 249757;
-                int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
-                                 - 997 * ttMoveHistory / 131072
-                                 - (ss->ply * 2 > thisThread->rootDepth * 3) * 47;
-                int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
-                                 - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
+                
 
-                extension =
-                  1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
+                if (depth >= 6 - (thisThread->completedDepth > 27) + ss->ttPv)
+                {
+                    int corrValAdj1  = std::abs(correctionValue) / 248400;
+                    int corrValAdj2  = std::abs(correctionValue) / 249757;
+                    int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
+                                     - 997 * ttMoveHistory / 131072
+                                     - (ss->ply * 2 > thisThread->rootDepth * 3) * 47;
+                    int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
+                                     - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
 
-                depth++;
+                    extension = 1 + (value < singularBeta - doubleMargin)
+                              + (value < singularBeta - tripleMargin);
+
+                    depth++;
+                }
+                else
+                    extension = 1;
             }
 
             // Multi-cut pruning

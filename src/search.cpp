@@ -1205,7 +1205,7 @@ moves_loop:  // When in check, search starts here
             r += 1036 + allNode * 848;
 
         if (!capture && !givesCheck && ss->quietMoveStreak >= 2)
-            r += (ss->quietMoveStreak - 1) * 50;
+            r += (ss->quietMoveStreak - 1) * 30;
 
         // For first picked move (ttMove) reduce reduction
         else if (ss->isTTMove)

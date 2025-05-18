@@ -810,7 +810,7 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
-    if (priorReduction >= 3 && !opponentWorsening)
+    if (priorReduction >= 3 && (!opponentWorsening || ttData.bound & BOUND_UPPER))
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 175)
         depth--;

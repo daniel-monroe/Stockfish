@@ -25,6 +25,7 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "position.h"
+#include "tt.h"
 
 namespace Stockfish {
 
@@ -87,7 +88,8 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       int                          pl) :
+                       int                          pl,
+                       const TranspositionTable*    tt) :
     pos(p),
     mainHistory(mh),
     lowPlyHistory(lph),
@@ -96,7 +98,8 @@ MovePicker::MovePicker(const Position&              p,
     pawnHistory(ph),
     ttMove(ttm),
     depth(d),
-    ply(pl) {
+    ply(pl),
+    ttTable(tt) {
 
     if (pos.checkers())
         stage = EVASION_TT + !(ttm && pos.pseudo_legal(ttm));
@@ -179,6 +182,17 @@ void MovePicker::score() {
 
             if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + ply);
+
+            if (ply <= 5 && ttTable && pos.see_ge(m, 0))
+            {
+                auto [ttHit, ttData, ttWriter] = ttTable->probe(pos.key_after(m));
+                if (ttHit)
+                {
+                  
+
+                }
+
+            }
         }
 
         else  // Type == EVASIONS

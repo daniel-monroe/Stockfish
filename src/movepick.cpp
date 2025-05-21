@@ -183,7 +183,7 @@ void MovePicker::score() {
             if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + ply);
 
-            if (ply <= 5 && ttTable && pos.see_ge(m, 0))
+            if (ply <= 5 && ttTable && pos.pseudo_legal(m) && pos.legal(m) && pos.see_ge(m, 0))
             {
                 auto [ttHit, ttData, ttWriter] = ttTable->probe(pos.key_after(m));
                 if (ttHit)

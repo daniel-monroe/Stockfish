@@ -188,7 +188,7 @@ void MovePicker::score() {
                 auto [ttHit, ttData, ttWriter] = ttTable->probe(pos.key_after(m));
                 if (ttHit)
                 {
-                    m.value += ttData.is_pv ? 5000 : -5000;
+                    m.value += (ttData.bound & BOUND_UPPER) ? 8000 : 0;
                 }
             }
         }

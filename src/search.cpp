@@ -648,6 +648,8 @@ Value Search::Worker::search(
             return alpha;
     }
 
+    ss->truePv = rootNode || ((ss - 1)->truePv && (ss - 1)->moveCount == 1);
+
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
     Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
@@ -1208,6 +1210,8 @@ moves_loop:  // When in check, search starts here
                + (ttData.depth >= depth) * (943 + cutNode * 1180);
 
         // These reduction adjustments have no proven non-linear scaling
+
+        r -= 1024 * ss->truePv;
 
         r += 316;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;

@@ -1037,8 +1037,10 @@ moves_loop:  // When in check, search starts here
         int delta = beta - alpha;
 
         int   reductionScale = reductions[depth] * reductions[moveCount];
-        Depth r              = reductionScale - delta * 794 / rootDelta
-                + (!improving && !(ss - 2)->isTTMove) * reductionScale * 205 / 512 + 1086;
+        Depth r              = reductionScale - delta * 794 / rootDelta + !improving * reductionScale * 205 / 512
+                - (ss->staticEval > (ss - 2)->staticEval + 200) * reductionScale / 4 + 1086;
+
+       
 
         // Increase reduction for ttPv nodes (*Scaler)
         // Smaller or even negative value is better for short time controls

@@ -617,6 +617,7 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->isTTMove       = false;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -1013,6 +1014,7 @@ moves_loop:  // When in check, search starts here
             continue;
 
         ss->moveCount = ++moveCount;
+        ss->isTTMove  = move == ttData.move;
 
         if (rootNode && is_mainthread() && nodes > 10000000)
         {
@@ -1034,7 +1036,9 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        int   reductionScale = reductions[depth] * reductions[moveCount];
+        Depth r              = reductionScale - delta * 794 / rootDelta
+                + (!improving && !(ss - 2)->isTTMove) * reductionScale * 205 / 512 + 1086;
 
         // Increase reduction for ttPv nodes (*Scaler)
         // Smaller or even negative value is better for short time controls
@@ -1775,11 +1779,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
     return bestValue;
-}
-
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
-    int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale - delta * 794 / rootDelta + !i * reductionScale * 205 / 512 + 1086;
 }
 
 // elapsed() returns the time elapsed since the search started. If the

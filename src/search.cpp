@@ -1038,7 +1038,7 @@ moves_loop:  // When in check, search starts here
 
         int   reductionScale = reductions[depth] * reductions[moveCount];
         Depth r              = reductionScale - delta * 794 / rootDelta + !improving * reductionScale * 205 / 512
-                - (ss->staticEval > (ss - 2)->staticEval + 200) * reductionScale / 4 + 1086;
+                + (ss->staticEval < (ss - 2)->staticEval - 400) * reductionScale / 3 + 1086;
 
        
 

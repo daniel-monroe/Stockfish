@@ -1093,7 +1093,7 @@ moves_loop:  // When in check, search starts here
 
                 history += 68 * thisThread->mainHistory[us][move.from_to()] / 32;
 
-                lmrDepth += history / 3388;
+                lmrDepth += std::min(history, 0) / 3388;
 
                 Value baseFutility = (bestMove ? 46 : 138 + std::abs(history / 300));
                 Value futilityValue =

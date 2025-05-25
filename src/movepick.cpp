@@ -30,6 +30,17 @@ namespace Stockfish {
 
 namespace {
 
+int a1 = 256, a2 = 256;
+int b1 = 256, b2 = 256;
+int c1 = 256, c2 = 256;
+int d1 = 256, d2 = 256;
+int e1 = 256, e2 = 256;
+int f1 = 256, f2 = 256;
+int g1 = 256, g2 = 256;
+int h1 = 256, h2 = 256;
+
+TUNE(a1, a2, b1, b2, c1, c2, d1, d2, e1, e2, f1, f2, g1, g2, h1, h2);
+
 enum Stages {
     // generate main search moves
     MAIN_TT,
@@ -118,6 +129,8 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
           + !(ttm && pos.capture_stage(ttm) && pos.pseudo_legal(ttm) && pos.see_ge(ttm, threshold));
 }
 
+inline int convert_pwl(int value, int l, int r) { return value * (value > 0 ? r : l); }
+
 // Assigns a numerical value to each move in a list, used for sorting.
 // Captures are ordered by Most Valuable Victim (MVV), preferring captures
 // with a good history. Quiets moves are ordered using the history tables.
@@ -157,13 +170,18 @@ void MovePicker::score() {
         else if constexpr (Type == QUIETS)
         {
             // histories
-            m.value = 2 * (*mainHistory)[us][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += (*continuationHistory[0])[pc][to];
-            m.value += (*continuationHistory[1])[pc][to];
-            m.value += (*continuationHistory[2])[pc][to];
-            m.value += (*continuationHistory[3])[pc][to];
-            m.value += (*continuationHistory[5])[pc][to];
+            m.value = 2 * convert_pwl((*mainHistory)[us][m.from_to()], a1, a2);
+            m.value += 2 * convert_pwl((*pawnHistory)[pawn_structure_index(pos)][pc][to], b1, b2);
+            m.value += convert_pwl((*continuationHistory[0])[pc][to], c1, c2);
+            m.value += convert_pwl((*continuationHistory[1])[pc][to], d1, d2);
+            m.value += convert_pwl((*continuationHistory[2])[pc][to], e1, e2);
+            m.value += convert_pwl((*continuationHistory[3])[pc][to], f1, f2);
+            m.value += convert_pwl((*continuationHistory[5])[pc][to], g1, g2);
+
+            if (ply < LOW_PLY_HISTORY_SIZE)
+                m.value += convert_pwl(8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + ply), h1, h2);
+
+            m.value /= 256;
 
             // bonus for checks
             m.value += (bool(pos.check_squares(pt) & to) && pos.see_ge(m, -75)) * 16384;
@@ -177,8 +195,7 @@ void MovePicker::score() {
                 m.value += bonus[pt] * v;
             }
 
-            if (ply < LOW_PLY_HISTORY_SIZE)
-                m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + ply);
+
         }
 
         else  // Type == EVASIONS

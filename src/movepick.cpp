@@ -30,16 +30,14 @@ namespace Stockfish {
 
 namespace {
 
-int a1 = 256, a2 = 256;
-int b1 = 256, b2 = 256;
-int c1 = 256, c2 = 256;
-int d1 = 256, d2 = 256;
-int e1 = 256, e2 = 256;
-int f1 = 256, f2 = 256;
-int g1 = 256, g2 = 256;
-int h1 = 256, h2 = 256;
-
-TUNE(a1, a2, b1, b2, c1, c2, d1, d2, e1, e2, f1, f2, g1, g2, h1, h2);
+int a1 = 247, a2 = 265;
+int b1 = 232, b2 = 243;
+int c1 = 283, c2 = 356;
+int d1 = 193, d2 = 305;
+int e1 = 220, e2 = 279;
+int f1 = 223, f2 = 254;
+int g1 = 223, g2 = 251;
+int h1 = 192, h2 = 222;
 
 enum Stages {
     // generate main search moves

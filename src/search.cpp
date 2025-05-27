@@ -543,7 +543,7 @@ void Search::Worker::clear() {
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory.fill(0);
 
-    ttMoveHistory = 0;
+    ttMoveHistory.fill(0);
 
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
@@ -1146,7 +1146,7 @@ moves_loop:  // When in check, search starts here
                 int corrValAdj1  = std::abs(correctionValue) / 248400;
                 int corrValAdj2  = std::abs(correctionValue) / 249757;
                 int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
-                                 - 997 * ttMoveHistory / 131072
+                                 - 997 * ttMoveHistory[pos.moved_piece(move)][move.to_sq()] / 131072
                                  - (ss->ply > thisThread->rootDepth) * 47;
                 int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
                                  - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
@@ -1285,7 +1285,7 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 1128;
 
-            r -= ttMoveHistory / 8;
+            r -= ttMoveHistory[movedPiece][move.to_sq()];
 
             // Note that if expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
@@ -1436,8 +1436,8 @@ moves_loop:  // When in check, search starts here
     {
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
                          ttData.move, moveCount);
-        if (!PvNode)
-            ttMoveHistory << (bestMove == ttData.move ? 800 : -879);
+        if (!PvNode && ttData.move)
+            ttMoveHistory[pos.moved_piece(ttData.move)][ttData.move.to_sq()] << (bestMove == ttData.move ? 800 : -879);
     }
 
     // Bonus for prior quiet countermove that caused the fail low

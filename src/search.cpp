@@ -1068,8 +1068,7 @@ moves_loop:  // When in check, search starts here
                 int seeHist = std::clamp(captHist / 31, -137 * depth, 125 * depth);
                 if (!pos.see_ge(move, -158 * depth - seeHist))
                 {
-                    bool mayStalemateTrap =
-                      alpha < 0 && pos.non_pawn_material(us) == PieceValue[movedPiece]
+                    bool mayStalemateTrap = pos.non_pawn_material(us) == PieceValue[movedPiece]
                       && PieceValue[movedPiece] >= RookValue;
 
                     // avoid pruning sacrifices of our last piece for stalemate

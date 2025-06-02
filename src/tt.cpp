@@ -111,7 +111,7 @@ void TTEntry::save(
         eval16    = int16_t(ev);
     }
     else if (depth8 + DEPTH_ENTRY_OFFSET >= 5 && Bound(genBound8 & 0x3) != BOUND_EXACT)
-        depth8--;
+        depth8 -= 2;
 }
 
 

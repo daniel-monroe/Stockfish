@@ -1399,6 +1399,9 @@ moves_loop:  // When in check, search starts here
             else
                 quietsSearched.push_back(move);
         }
+
+				if (move == ttData.move && eval >= beta + 200 && priorReduction >= 3)
+            depth++;
     }
 
     // Step 21. Check for mate and stalemate

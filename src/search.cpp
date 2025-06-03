@@ -963,6 +963,10 @@ moves_loop:  // When in check, search starts here
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutBeta;
 
+    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3 && ttData.value >= beta && ss->staticEval >= beta + 50 * depth
+        && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
+        return beta + (eval - beta) / 3;
+
     const PieceToHistory* contHist[] = {
       (ss - 1)->continuationHistory, (ss - 2)->continuationHistory, (ss - 3)->continuationHistory,
       (ss - 4)->continuationHistory, (ss - 5)->continuationHistory, (ss - 6)->continuationHistory};

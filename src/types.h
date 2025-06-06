@@ -153,6 +153,10 @@ using Value = int;
 struct Evaluation {
     Value eval;  // The NNUE evaluation value
     Value unc;   // Uncertainty of the evaluation
+
+    Evaluation(Value ev, Value un) :
+        eval(ev),
+        unc(un) {}
 };
 
 constexpr Value VALUE_ZERO     = 0;

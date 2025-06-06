@@ -223,8 +223,8 @@ Network<Arch, Transformer>::evaluate(const Position&                         pos
     const int  bucket = (pos.count<ALL_PIECES>() - 1) / 4;
     const auto psqt =
       featureTransformer->transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
-    const auto positional = network[bucket].propagate(transformedFeatures);
-    return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale)};
+    const auto [positional, unc] = network[bucket].propagate(transformedFeatures);
+    return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale), static_cast<Value>(unc)};
 }
 
 
@@ -291,7 +291,7 @@ Network<Arch, Transformer>::trace_evaluate(const Position&                      
         const auto positional = network[bucket].propagate(transformedFeatures);
 
         t.psqt[bucket]       = static_cast<Value>(materialist / OutputScale);
-        t.positional[bucket] = static_cast<Value>(positional / OutputScale);
+        t.positional[bucket] = static_cast<Value>(std::get<0>(positional) / OutputScale);
     }
 
     return t;

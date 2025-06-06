@@ -150,6 +150,11 @@ enum Bound : int8_t {
 // to be in the range (-VALUE_NONE, VALUE_NONE] and should not exceed this range.
 using Value = int;
 
+struct Evaluation {
+    Value eval;  // The NNUE evaluation value
+    Value unc;   // Uncertainty of the evaluation
+};
+
 constexpr Value VALUE_ZERO     = 0;
 constexpr Value VALUE_DRAW     = 0;
 constexpr Value VALUE_NONE     = 32002;

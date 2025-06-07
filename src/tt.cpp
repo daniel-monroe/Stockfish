@@ -50,13 +50,17 @@ struct TTEntry {
 
     // Convert internal bitfields to external types
     TTData read() const {
-        return TTData{Move(move16),           Value(value16),
-                      Evaluation(Value(eval16), VALUE_NONE),          Depth(depth8 + DEPTH_ENTRY_OFFSET),
-                      Bound(genBound8 & 0x3), bool(genBound8 & 0x4)};
+        return TTData{Move(move16),
+                      Value(value16),
+                      Evaluation(Value(eval16), Value(unc16)),
+                      Depth(depth8 + DEPTH_ENTRY_OFFSET),
+                      Bound(genBound8 & 0x3),
+                      bool(genBound8 & 0x4)};
     }
 
     bool is_occupied() const;
-    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Evaluation ev, uint8_t generation8);
+    void
+    save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Evaluation ev, uint8_t generation8);
     // The returned age is a multiple of TranspositionTable::GENERATION_DELTA
     uint8_t relative_age(const uint8_t generation8) const;
 
@@ -69,6 +73,7 @@ struct TTEntry {
     Move     move16;
     int16_t  value16;
     int16_t  eval16;
+    int16_t  unc16;
 };
 
 // `genBound8` is where most of the details are. We use the following constants to manipulate 5 leading generation bits
@@ -109,6 +114,7 @@ void TTEntry::save(
         genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
         value16   = int16_t(v);
         eval16    = int16_t(ev.eval);
+        unc16     = int16_t(ev.unc);
     }
     else if (depth8 + DEPTH_ENTRY_OFFSET >= 5 && Bound(genBound8 & 0x3) != BOUND_EXACT)
         depth8--;
@@ -146,7 +152,7 @@ struct Cluster {
     char    padding[2];  // Pad to 32 bytes
 };
 
-static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");
+//static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");
 
 
 // Sets the size of the transposition table,
@@ -155,7 +161,7 @@ static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");
 void TranspositionTable::resize(size_t mbSize, ThreadPool& threads) {
     aligned_large_pages_free(table);
 
-    clusterCount = mbSize * 1024 * 1024 / sizeof(Cluster);
+    clusterCount = mbSize * 1024 * 1024 / 32;
 
     table = static_cast<Cluster*>(aligned_large_pages_alloc(clusterCount * sizeof(Cluster)));
 

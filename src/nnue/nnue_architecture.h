@@ -18,6 +18,8 @@
 
 // Input features and network structure used in NNUE evaluation function
 
+
+
 #ifndef NNUE_ARCHITECTURE_H_INCLUDED
 #define NNUE_ARCHITECTURE_H_INCLUDED
 
@@ -48,6 +50,10 @@ constexpr int       L3Small                           = 32;
 
 constexpr IndexType PSQTBuckets = 8;
 constexpr IndexType LayerStacks = 8;
+
+inline int arr[8][15] = {};
+
+TUNE(SetRange(-256 * 10, 256 * 10), arr);
 
 // If vector instructions are enabled, we update and refresh the
 // accumulator tile by tile such that each tile fits in the CPU's
@@ -97,7 +103,7 @@ struct NetworkArchitecture {
             && fc_2.write_parameters(stream);
     }
 
-    std::tuple<std::int32_t, std::int32_t> propagate(const TransformedFeatureType* transformedFeatures) {
+    std::tuple<std::int32_t, std::int32_t> propagate(const TransformedFeatureType* transformedFeatures, int bucket) {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
@@ -134,7 +140,23 @@ struct NetworkArchitecture {
           (buffer.fc_0_out[FC_0_OUTPUTS]) * (600 * OutputScale) / (127 * (1 << WeightScaleBits));
         std::int32_t outputValue = buffer.fc_2_out[0] + fwdOut;
 
-        return {outputValue, 0};
+        std::int32_t unc = 0;
+
+        if (L1 == TransformedFeatureDimensionsBig)
+        {
+            for (int i = 0; i < L2; i++)
+            {   
+
+                // 6 bits then clip to 127
+                unc +=
+                  arr[bucket][i] * std::clamp(buffer.fc_0_out[i] >> WeightScaleBits, -127, 127);
+            }
+        }
+
+        unc /= 256;
+
+
+        return {outputValue, unc};
     }
 };
 

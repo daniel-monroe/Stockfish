@@ -801,7 +801,7 @@ Value Search::Worker::search(
     }
     else
     {
-        evaluation = evaluate(pos);
+        evaluation           = evaluate(pos);
         unadjustedStaticEval = evaluation.eval;
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -810,7 +810,9 @@ Value Search::Worker::search(
                        evaluation, tt.generation());
     }
 
-    evaluation.eval = unadjustedStaticEval;
+    evaluation.eval   = unadjustedStaticEval;
+    uncertainty = evaluation.unc;
+
 
     // Use static evaluation difference to improve quiet move ordering
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture && !ttHit)
@@ -1581,8 +1583,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
         if (ss->ttHit)
         {
-
-
             // Never assume anything about values stored in TT
             unadjustedStaticEval = ttData.eval;
             if (!is_valid(unadjustedStaticEval))
@@ -1607,7 +1607,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
         }
         evaluation.eval = unadjustedStaticEval;
-        
+
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
@@ -1623,6 +1623,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             alpha = bestValue;
 
         futilityBase = ss->staticEval + 376;
+
     }
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,

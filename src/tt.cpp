@@ -51,12 +51,12 @@ struct TTEntry {
     // Convert internal bitfields to external types
     TTData read() const {
         return TTData{Move(move16),           Value(value16),
-                      Value(eval16),          Depth(depth8 + DEPTH_ENTRY_OFFSET),
+                      Evaluation(Value(eval16), VALUE_NONE),          Depth(depth8 + DEPTH_ENTRY_OFFSET),
                       Bound(genBound8 & 0x3), bool(genBound8 & 0x4)};
     }
 
     bool is_occupied() const;
-    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Evaluation ev, uint8_t generation8);
     // The returned age is a multiple of TranspositionTable::GENERATION_DELTA
     uint8_t relative_age(const uint8_t generation8) const;
 
@@ -91,7 +91,7 @@ bool TTEntry::is_occupied() const { return bool(depth8); }
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is not atomic and can be racy.
 void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
+  Key k, Value v, bool pv, Bound b, Depth d, Move m, Evaluation ev, uint8_t generation8) {
 
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
@@ -108,7 +108,7 @@ void TTEntry::save(
         depth8    = uint8_t(d - DEPTH_ENTRY_OFFSET);
         genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
         value16   = int16_t(v);
-        eval16    = int16_t(ev);
+        eval16    = int16_t(ev.eval);
     }
     else if (depth8 + DEPTH_ENTRY_OFFSET >= 5 && Bound(genBound8 & 0x3) != BOUND_EXACT)
         depth8--;
@@ -130,7 +130,7 @@ TTWriter::TTWriter(TTEntry* tte) :
     entry(tte) {}
 
 void TTWriter::write(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
+  Key k, Value v, bool pv, Bound b, Depth d, Move m, Evaluation ev, uint8_t generation8) {
     entry->save(k, v, pv, b, d, m, ev, generation8);
 }
 
@@ -241,7 +241,7 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
             replace = &tte[i];
 
     return {false,
-            TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_ENTRY_OFFSET, BOUND_NONE, false},
+            TTData{Move::none(), VALUE_NONE, Evaluation{}, DEPTH_ENTRY_OFFSET, BOUND_NONE, false},
             TTWriter(replace)};
 }
 

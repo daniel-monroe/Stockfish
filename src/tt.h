@@ -46,19 +46,21 @@ struct Cluster;
 
 // A copy of the data already in the entry (possibly collided). `probe` may be racy, resulting in inconsistent data.
 struct TTData {
-    Move  move;
-    Value value, eval;
-    Depth depth;
-    Bound bound;
-    bool  is_pv;
+    Move       move;
+    Value      value, eval;
+    Evaluation evaluation;
+    Depth      depth;
+    Bound      bound;
+    bool       is_pv;
 
     TTData() = delete;
 
     // clang-format off
-    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv) :
+    TTData(Move m, Value v, Evaluation ev, Depth d, Bound b, bool pv) :
         move(m),
         value(v),
-        eval(ev),
+        eval(ev.eval),
+        evaluation(ev),
         depth(d),
         bound(b),
         is_pv(pv) {};
@@ -69,7 +71,8 @@ struct TTData {
 // This is used to make racy writes to the global TT.
 struct TTWriter {
    public:
-    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void
+    write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Evaluation ev, uint8_t generation8);
 
    private:
     friend class TranspositionTable;

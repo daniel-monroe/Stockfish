@@ -150,10 +150,7 @@ enum Bound : int8_t {
 // to be in the range (-VALUE_NONE, VALUE_NONE] and should not exceed this range.
 using Value = int;
 
-struct Evaluation {
-    Value eval;  // The NNUE evaluation value
-    Value unc;   // Uncertainty of the evaluation
-};
+
 
 constexpr Value VALUE_ZERO     = 0;
 constexpr Value VALUE_DRAW     = 0;
@@ -167,6 +164,16 @@ constexpr Value VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY;
 constexpr Value VALUE_TB                 = VALUE_MATE_IN_MAX_PLY - 1;
 constexpr Value VALUE_TB_WIN_IN_MAX_PLY  = VALUE_TB - MAX_PLY;
 constexpr Value VALUE_TB_LOSS_IN_MAX_PLY = -VALUE_TB_WIN_IN_MAX_PLY;
+
+struct Evaluation {
+    Value eval = VALUE_NONE;  // The NNUE evaluation value
+    Value unc  = VALUE_NONE;
+
+    Evaluation() = default;
+
+    Evaluation(Value ev, Value un) :
+        eval(ev), unc(un) {}
+};
 
 
 constexpr bool is_valid(Value value) { return value != VALUE_NONE; }

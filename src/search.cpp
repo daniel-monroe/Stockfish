@@ -597,14 +597,16 @@ Value Search::Worker::search(
     Move      pv[MAX_PLY + 1];
     StateInfo st;
 
-    Key   posKey;
-    Move  move, excludedMove, bestMove;
-    Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta;
-    bool  givesCheck, improving, priorCapture, opponentWorsening;
-    bool  capture, ttCapture;
-    int   priorReduction;
-    Piece movedPiece;
+    Key        posKey;
+    Move       move, excludedMove, bestMove;
+    Depth      extension, newDepth;
+    Value      bestValue, value, eval, maxValue, probCutBeta;
+    bool       givesCheck, improving, priorCapture, opponentWorsening;
+    bool       capture, ttCapture;
+    int        priorReduction;
+    Piece      movedPiece;
+    Evaluation evaluation;
+
 
     ValueList<Move, 32> capturesSearched;
     ValueList<Move, 32> quietsSearched;
@@ -617,6 +619,7 @@ Value Search::Worker::search(
     ss->moveCount      = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
+
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -750,7 +753,7 @@ Value Search::Worker::search(
                 if (b == BOUND_EXACT || (b == BOUND_LOWER ? value >= beta : value <= alpha))
                 {
                     ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, b,
-                                   std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
+                                   std::min(MAX_PLY - 1, depth + 6), Move::none(), evaluation,
                                    tt.generation());
 
                     return value;
@@ -785,8 +788,10 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate(pos).eval;
-
+        {
+            evaluation           = evaluate(pos);
+            unadjustedStaticEval = evaluation.eval;
+        }
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // ttValue can be used as a better position evaluation
@@ -796,13 +801,16 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(pos).eval;
+        evaluation = evaluate(pos);
+        unadjustedStaticEval = evaluation.eval;
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
-                       unadjustedStaticEval, tt.generation());
+                       evaluation, tt.generation());
     }
+
+    evaluation.eval = unadjustedStaticEval;
 
     // Use static evaluation difference to improve quiet move ordering
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture && !ttHit)
@@ -948,7 +956,7 @@ Value Search::Worker::search(
             {
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
+                               probCutDepth + 1, move, evaluation, tt.generation());
 
                 if (!is_decisive(value))
                     return value - (probCutBeta - beta);
@@ -1475,7 +1483,7 @@ moves_loop:  // When in check, search starts here
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
                        moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), bestMove,
-                       unadjustedStaticEval, tt.generation());
+                       evaluation, tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
@@ -1519,11 +1527,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Move      pv[MAX_PLY + 1];
     StateInfo st;
 
-    Key   posKey;
-    Move  move, bestMove;
-    Value bestValue, value, futilityBase;
-    bool  pvHit, givesCheck, capture;
-    int   moveCount;
+    Key        posKey;
+    Move       move, bestMove;
+    Value      bestValue, value, futilityBase;
+    Evaluation evaluation;
+    bool       pvHit, givesCheck, capture;
+    int        moveCount;
 
     // Step 1. Initialize node
     if (PvNode)
@@ -1578,8 +1587,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             unadjustedStaticEval = ttData.eval;
             if (!is_valid(unadjustedStaticEval))
             {
-                Evaluation posEval = evaluate(pos);
-                unadjustedStaticEval = posEval.eval;
+                evaluation           = evaluate(pos);
+                unadjustedStaticEval = evaluation.eval;
             }
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
@@ -1591,12 +1600,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            unadjustedStaticEval = evaluate(pos).eval;
+            evaluation           = evaluate(pos);
+            unadjustedStaticEval = evaluation.eval;
 
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
         }
-
+        evaluation.eval = unadjustedStaticEval;
+        
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
@@ -1604,8 +1615,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 bestValue = (bestValue + beta) / 2;
             if (!ss->ttHit)
                 ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
-                               DEPTH_UNSEARCHED, Move::none(), unadjustedStaticEval,
-                               tt.generation());
+                               DEPTH_UNSEARCHED, Move::none(), evaluation, tt.generation());
             return bestValue;
         }
 
@@ -1750,8 +1760,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Save gathered info in transposition table. The static evaluation
     // is saved as it was before adjustment by correction history.
     ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), pvHit,
-                   bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, DEPTH_QS, bestMove,
-                   unadjustedStaticEval, tt.generation());
+                   bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, DEPTH_QS, bestMove, evaluation,
+                   tt.generation());
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 

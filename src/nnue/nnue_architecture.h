@@ -53,8 +53,6 @@ constexpr IndexType LayerStacks = 8;
 
 inline int arr[8][15] = {};
 
-TUNE(SetRange(-256 * 10, 256 * 10), arr);
-
 // If vector instructions are enabled, we update and refresh the
 // accumulator tile by tile such that each tile fits in the CPU's
 // vector registers.

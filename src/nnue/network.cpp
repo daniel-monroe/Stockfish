@@ -86,7 +86,8 @@ EmbeddedNNUE get_embedded(EmbeddedNNUEType type) {
 namespace Stockfish::Eval::NNUE {
 
 
-TUNE(SetRange(-256 * 10, 256 * 10), arr);
+auto tuned = SetRange(-256 * 10, 256 * 10);
+TUNE(tuned, arr);
 
 
 namespace Detail {

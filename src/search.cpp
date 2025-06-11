@@ -581,13 +581,13 @@ Value Search::Worker::search(
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
 
-    // Check if we have an upcoming move that draws by repetition
-    if (!rootNode && alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
-    {
-        alpha = value_draw(this->nodes);
-        if (alpha >= beta)
-            return alpha;
-    }
+    //// Check if we have an upcoming move that draws by repetition
+    //if (!rootNode && alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    //{
+    //    alpha = value_draw(this->nodes);
+    //    if (alpha >= beta)
+    //        return alpha;
+    //}
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -628,11 +628,11 @@ Value Search::Worker::search(
 
     if (!rootNode)
     {
-        // Step 2. Check for aborted search and immediate draw
-        if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
-            || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
-                                                        : value_draw(thisThread->nodes);
+        //// Step 2. Check for aborted search and immediate draw
+        //if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
+        //    || ss->ply >= MAX_PLY)
+        //    return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
+        //                                                : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1508,12 +1508,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(PvNode || (alpha == beta - 1));
 
     // Check if we have an upcoming move that draws by repetition
-    if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
-    {
-        alpha = value_draw(this->nodes);
-        if (alpha >= beta)
-            return alpha;
-    }
+    //if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    //{
+    //    alpha = value_draw(this->nodes);
+    //    if (alpha >= beta)
+    //        return alpha;
+    //}
 
     Move      pv[MAX_PLY + 1];
     StateInfo st;
@@ -1540,9 +1540,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
         thisThread->selDepth = ss->ply + 1;
 
-    // Step 2. Check for an immediate draw or maximum ply reached
-    if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+    //// Step 2. Check for an immediate draw or maximum ply reached
+    //if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
+    //    return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 

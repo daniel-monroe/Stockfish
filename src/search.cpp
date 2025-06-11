@@ -786,7 +786,9 @@ Value Search::Worker::search(
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
+        evaluation           = ttData.evaluation;
         unadjustedStaticEval = ttData.eval;
+
         if (!is_valid(unadjustedStaticEval))
         {
             evaluation           = evaluate(pos);
@@ -812,6 +814,7 @@ Value Search::Worker::search(
 
     evaluation.eval   = unadjustedStaticEval;
     uncertainty = evaluation.unc;
+
 
 
     // Use static evaluation difference to improve quiet move ordering

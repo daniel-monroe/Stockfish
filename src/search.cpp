@@ -1019,6 +1019,8 @@ moves_loop:  // When in check, search starts here
         int delta = beta - alpha;
 
         Depth r = reduction(improving, depth, moveCount, delta);
+        r += 316 - std::abs(correctionValue) / 28047;
+
 
         // Increase reduction for ttPv nodes (*Scaler)
         // Smaller or even negative value is better for short time controls
@@ -1191,9 +1193,7 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 316;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
-        r -= std::abs(correctionValue) / 28047;
 
         // Increase reduction for cut nodes
         if (cutNode)

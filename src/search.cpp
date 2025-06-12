@@ -1210,6 +1210,8 @@ moves_loop:  // When in check, search starts here
         if (!capture && !givesCheck && ss->quietMoveStreak >= 2)
             r += (ss->quietMoveStreak - 1) * 50;
 
+        if (priorReduction >= 1 && ss->staticEval + (ss - 1)->staticEval > 175) r += 1024;
+
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
             r -= 2006;

@@ -64,10 +64,12 @@ using namespace Search;
 namespace {
 
 // (*Scalers):
-// The values with Scaler asterisks have proven non-linear scaling.
+// Search features marked by "(*Scaler)" have proven non-linear scaling.
 // They are optimized to time controls of 180 + 1.8 and longer,
 // so changing them or adding conditions that are similar requires
 // tests at these types of time controls.
+// Generally, scaling behavior boils down to the fact that making the search deeper rather than wider,
+// e.g., by making reductions and pruning more aggressive, scales well.
 
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
     const Color us    = pos.side_to_move();
@@ -813,14 +815,17 @@ Value Search::Worker::search(
               << bonus * 1266 / 1024;
     }
 
-    // Set up the improving flag, which is true if current static evaluation is
-    // bigger than the previous static evaluation at our turn (if we were in
-    // check at our previous move we go back until we weren't in check) and is
-    // false otherwise. The improving flag is used in various pruning heuristics.
+    // Set up the improving and opponentWorsening flags.
+    // These flags are true respectively if the static evaluation is better for us
+    // than it was at our last turn (two plies ago) and the opponent's
+    // last turn (one ply ago).
     improving = ss->staticEval > (ss - 2)->staticEval;
 
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
+    // Retroactive LMR adjustments
+    // The ply after beginning an LMR search, we adjust the reduced depth based on
+    // how the opponent's move affected the static evaluation.
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 175)
@@ -851,6 +856,7 @@ Value Search::Worker::search(
     }
 
     // Step 9. Null move search with verification search
+    // The non-pawn condition is important for finding Zugzwangs.
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
         && ss->staticEval >= beta - 19 * depth + 389 && !excludedMove && pos.non_pawn_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
@@ -1114,9 +1120,8 @@ moves_loop:  // When in check, search starts here
         // and if the result is lower than ttValue minus a margin, then we will
         // extend the ttMove. Recursive singular search is avoided.
 
-        // (*Scaler) Generally, higher singularBeta (i.e closer to ttValue)
-        // and lower extension margins scale well.
-
+        // (*Scaler) Generally, frequent/aggressive extensions scale well.
+        // This includes high singularBeta values (closer to ttValue) and low extension margins.
         if (!rootNode && move == ttData.move && !excludedMove
             && depth >= 6 - (thisThread->completedDepth > 27) + ss->ttPv && is_valid(ttData.value)
             && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
@@ -1244,7 +1249,7 @@ moves_loop:  // When in check, search starts here
             ss->reduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
-            // (*Scaler) Usually doing more shallower searches
+            // (*Scaler) Usually, doing more shallower searches
             // doesn't scale well to longer TCs
             if (value > alpha && d < newDepth)
             {
@@ -1375,7 +1380,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
-                    // (* Scaler) Especially if they make cutoffCnt increment more often.
+                    // (*Scaler) Less frequent cutoff increments scale well
                     ss->cutoffCnt += (extension < 2) || PvNode;
                     assert(value >= beta);  // Fail high
                     break;
@@ -1426,6 +1431,7 @@ moves_loop:  // When in check, search starts here
     }
 
     // Bonus for prior quiet countermove that caused the fail low
+    // (*Scaler) Smaller bonuses scale well
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         int bonusScale = -220;
@@ -1835,6 +1841,7 @@ void update_pv(Move* pv, Move move, const Move* childPv) {
 
 
 // Updates stats at the end of search() when a bestMove is found
+// (*Scaler) Smaller bonuses and larger maluses scale well
 void update_all_stats(const Position&      pos,
                       Stack*               ss,
                       Search::Worker&      workerThread,

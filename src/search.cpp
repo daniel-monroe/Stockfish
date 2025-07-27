@@ -261,6 +261,7 @@ void Search::Worker::iterative_deepening() {
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
+        (ss - i)->reduction = -9999;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -651,7 +652,7 @@ Value Search::Worker::search(
     Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     bestMove       = Move::none();
     priorReduction = (ss - 1)->reduction;
-    (ss - 1)->reduction = 0;
+    (ss - 1)->reduction = -9999;
     ss->statScore       = 0;
     (ss + 2)->cutoffCnt = 0;
 
@@ -820,7 +821,7 @@ Value Search::Worker::search(
 
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
-    if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 175)
+    if (priorReduction >= -10 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 175 + 150 * (priorReduction <= 0))
         depth--;
 
     // Step 7. Razoring
@@ -1228,7 +1229,7 @@ moves_loop:  // When in check, search starts here
 
             ss->reduction = newDepth - d;
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
-            ss->reduction = 0;
+            ss->reduction = -9999;
 
             // Do a full-depth search when reduced LMR search fails high
             // (*Scaler) Usually doing more shallower searches

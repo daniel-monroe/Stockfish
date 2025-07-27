@@ -824,7 +824,7 @@ Value Search::Worker::search(
         depth--;
     else if (!PvNode && priorReduction >= 1 && ss->staticEval + (ss - 1)->staticEval > 175) {
         Value xValue = qsearch<NonPV>(pos, ss, alpha, beta);
-        if (xValue <= alpha)
+        if (xValue >= beta)
           return xValue;
     }
 

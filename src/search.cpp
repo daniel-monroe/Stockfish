@@ -822,6 +822,12 @@ Value Search::Worker::search(
         depth++;
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 175)
         depth--;
+    else if (!PvNode && priorReduction >= 1 && ss->staticEval + (ss - 1)->staticEval > 175) {
+        Value xValue = qsearch<NonPV>(pos, ss, alpha, beta);
+        if (xValue <= alpha)
+          return xValue;
+    }
+
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.

@@ -853,7 +853,7 @@ Value Search::Worker::search(
         && ss->ply >= nmpMinPly && !is_loss(beta))
     {
         // Null move dynamic reduction based on depth
-        Depth R = 7 + depth / 3;
+        Depth R = 7 + depth / 2;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];

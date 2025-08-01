@@ -1196,7 +1196,7 @@ moves_loop:  // When in check, search starts here
 
         r += (ss + 1)->quietMoveStreak * 51;
 
-        Depth extraDepth = std::max(depth + ss->ply - rootDepth, 0);
+        Depth extraDepth = std::max(depth + ss->ply - rootDepth - 10, 0);
 
         r -= std::min(extraDepth, rootDepth) * 1000 / rootDepth;
 

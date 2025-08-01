@@ -1196,6 +1196,11 @@ moves_loop:  // When in check, search starts here
 
         r += (ss + 1)->quietMoveStreak * 51;
 
+        Depth extraDepth = std::max(depth + ss->ply - rootDepth, 0);
+
+        r -= std::min(extraDepth, rootDepth) * 1000 / rootDepth;
+
+
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
             r -= 2043;

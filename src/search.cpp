@@ -1211,6 +1211,9 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 789 / 8192;
 
+        if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 5 && eval >= ss->staticEval + 200)
+          r -= 1024;
+
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
         {

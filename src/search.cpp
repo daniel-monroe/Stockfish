@@ -1198,7 +1198,7 @@ moves_loop:  // When in check, search starts here
 
         Depth lostDepth = rootDepth - (ss->ply + depth);
 
-        r += std::max(lostDepth, 0) * 3000 / rootDepth;
+        r += std::max(lostDepth, 0) * 6000 / rootDepth;
 
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)

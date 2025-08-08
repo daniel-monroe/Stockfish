@@ -1170,6 +1170,9 @@ moves_loop:  // When in check, search starts here
         newDepth += extension;
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
+        if (eval < alpha && ss->staticEval < (ss - 2)->staticEval - 200)
+          r += 1024;
+
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
             r -= 2510 + PvNode * 963 + (ttData.value > alpha) * 916

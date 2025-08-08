@@ -1015,6 +1015,9 @@ moves_loop:  // When in check, search starts here
 
         Depth r = reduction(improving, depth, moveCount, delta);
 
+        if (ss->staticEval + KnightValue < alpha)
+          r += 1024;
+
         // Increase reduction for ttPv nodes (*Scaler)
         // Smaller or even negative value is better for short time controls
         // Bigger value is better for long time controls

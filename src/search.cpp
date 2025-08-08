@@ -1085,11 +1085,19 @@ moves_loop:  // When in check, search starts here
                 // (*Scaler): Generally, more frequent futility pruning
                 // scales well with respect to time and threads
                 if (!ss->inCheck && lmrDepth < 11 && futilityValue <= alpha)
-                {
-                    if (bestValue <= futilityValue && !is_decisive(bestValue)
-                        && !is_win(futilityValue))
-                        bestValue = futilityValue;
-                    continue;
+                { 
+
+                    bool shouldSkip = true;
+                    if (lmrDepth >= 7) {
+                      Value reducedValue = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, lmrDepth - 7, true);
+                      shouldSkip = (reducedValue <= alpha);
+                    }
+                    if (shouldSkip) {
+                      if (bestValue <= futilityValue && !is_decisive(bestValue)
+                          && !is_win(futilityValue))
+                          bestValue = futilityValue;
+                      continue;
+                    }
                 }
 
                 lmrDepth = std::max(lmrDepth, 0);

@@ -1045,7 +1045,17 @@ moves_loop:  // When in check, search starts here
                                         + PieceValue[capturedPiece] + 131 * captHist / 1024;
 
                     if (futilityValue <= alpha)
-                        continue;
+                    {
+                        bool shouldSkip = true;
+                        if (lmrDepth >= 3)
+                        {
+                            Value fValue = -qsearch<NonPV>(pos, ss + 1, -alpha, -(alpha + 1));
+
+                            shouldSkip = fValue <= alpha;
+                        }
+                        if (shouldSkip)
+                            continue;
+                    }
                 }
 
                 // SEE based pruning for captures and checks

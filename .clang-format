@@ -9,7 +9,6 @@ AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
-BreakTemplateDeclarations: Yes
 BasedOnStyle: WebKit
 BitFieldColonSpacing: After
 BinPackParameters: false

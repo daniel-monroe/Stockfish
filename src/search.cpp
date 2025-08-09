@@ -1252,8 +1252,7 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 1139;
 
-            if (depth <= 4)
-                r += 1150;
+             r += std::max(2100 - 300 * depth, 0);
 
             // Note that if expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,

@@ -1088,8 +1088,8 @@ moves_loop:  // When in check, search starts here
                 { 
 
                     bool shouldSkip = true;
-                    if (lmrDepth >= 7) {
-                      Value reducedValue = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, lmrDepth - 7, true);
+                    if (lmrDepth >= 3) {
+                      Value reducedValue = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, 0, true);
                       shouldSkip = (reducedValue <= alpha);
                     }
                     if (shouldSkip) {

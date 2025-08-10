@@ -905,8 +905,7 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 215 - 60 * improving;
-    if (depth >= 3
-        && !is_decisive(beta)
+    if (!is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there
         && !(is_valid(ttData.value) && ttData.value < probCutBeta))
@@ -915,7 +914,7 @@ Value Search::Worker::search(
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
         Depth      dynamicReduction = (ss->staticEval - beta) / 300;
-        Depth      probCutDepth     = std::max(depth - 5 - dynamicReduction, 0);
+        Depth      probCutDepth     = depth >= 3 ? std::max(depth - 5 - dynamicReduction, 0) : DEPTH_UNSEARCHED - 1;
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -928,17 +927,27 @@ Value Search::Worker::search(
 
             movedPiece = pos.moved_piece(move);
 
-            do_move(pos, move, st, ss);
+           
 
-            // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+            if (depth >= 3)
+            {
+                do_move(pos, move, st, ss);
 
-            // If the qsearch held, perform the regular search
-            if (value >= probCutBeta && probCutDepth > 0)
-                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
-                                       !cutNode);
+                // Perform a preliminary qsearch to verify that the move holds
+                value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
-            undo_move(pos, move);
+                // If the qsearch held, perform the regular search
+                if (value >= probCutBeta && probCutDepth > 0)
+                    value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                           probCutDepth, !cutNode);
+                undo_move(pos, move);
+
+            }
+            else if (ss->staticEval > beta && pos.see_ge(move, beta))
+            {
+              value = probCutBeta + 1;  // Assume a good capture
+            }
+
 
             if (value >= probCutBeta)
             {

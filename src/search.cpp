@@ -1164,6 +1164,8 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
+        bool badSee = !pos.see_ge(move, -100);
+
         // Step 16. Make the move
         do_move(pos, move, st, givesCheck, ss);
 
@@ -1181,6 +1183,8 @@ moves_loop:  // When in check, search starts here
         r += 650;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 69;
         r -= std::abs(correctionValue) / 27160;
+
+        r += 1024 * badSee;
 
         // Increase reduction for cut nodes
         if (cutNode)

@@ -1181,6 +1181,8 @@ moves_loop:  // When in check, search starts here
         r -= moveCount * (67 - 2 * msb(depth));
         r -= std::abs(correctionValue) / 27160;
 
+				r += bool(bestMove) * 1024;
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 2998 + 2 * msb(depth) + (948 + 14 * msb(depth)) * !ttData.move;

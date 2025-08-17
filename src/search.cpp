@@ -1154,9 +1154,11 @@ moves_loop:  // When in check, search starts here
             // ttMove in favor of other moves based on some conditions:
 
             // If the ttMove is assumed to fail high over current beta
-            else if (ttData.value >= beta)
+						else if (ttData.value >= beta + 200 && !is_decisive(ttData.value))
+							return ttData.value;
+            else if (ttData.value >= beta) {
                 extension = -3;
-
+            }
             // If we are on a cutNode but the ttMove is not assumed to fail high
             // over current beta
             else if (cutNode)

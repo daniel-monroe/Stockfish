@@ -1180,6 +1180,8 @@ moves_loop:  // When in check, search starts here
         r += 679 - 6 * msb(depth);  // Base reduction offset to compensate for other tweaks
         r -= moveCount * (67 - 2 * msb(depth));
         r -= std::abs(correctionValue) / 27160;
+        r -= bool(bestMove) * 1024;
+
 
         // Increase reduction for cut nodes
         if (cutNode)

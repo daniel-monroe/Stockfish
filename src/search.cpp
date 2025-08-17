@@ -1817,8 +1817,7 @@ void update_all_stats(const Position& pos,
     PieceType              capturedPiece;
 
     int bonus        = std::min(170 * depth - 87, 1598) + 332 * (bestMove == ttMove);
-    int quietMalus   = std::min(743 * depth - 180, 2287) - 33 * quietsSearched.size();
-    int captureMalus = std::min(708 * depth - 148, 2287) - 29 * capturesSearched.size();
+    int malus   = std::min(743 * depth - 180, 2287) - 33 * quietsSearched.size();
 
     if (!pos.capture_stage(bestMove))
     {
@@ -1826,7 +1825,7 @@ void update_all_stats(const Position& pos,
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
-            update_quiet_histories(pos, ss, workerThread, move, -quietMalus * 1115 / 1024);
+            update_quiet_histories(pos, ss, workerThread, move, -malus * 1115 / 1024);
     }
     else
     {
@@ -1839,14 +1838,14 @@ void update_all_stats(const Position& pos,
     // previous ply when it gets refuted.
     if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      -captureMalus * 622 / 1024);
+                                      -malus * 622 / 1024);
 
     // Decrease stats for all non-best capture moves
     for (Move move : capturesSearched)
     {
         movedPiece    = pos.moved_piece(move);
         capturedPiece = type_of(pos.piece_on(move.to_sq()));
-        captureHistory[movedPiece][move.to_sq()][capturedPiece] << -captureMalus * 1431 / 1024;
+        captureHistory[movedPiece][move.to_sq()][capturedPiece] << -malus * 1431 / 1024;
     }
 }
 

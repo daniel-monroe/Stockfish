@@ -172,9 +172,8 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
             // or bonus for escaping an attack by a lesser piece.
             if (KNIGHT <= pt && pt <= QUEEN)
             {
-                static constexpr int bonus[QUEEN + 1] = {0, 0, 144, 144, 256, 517};
-                int v = threatByLesser[pt] & to ? -95 : 100 * bool(threatByLesser[pt] & from);
-                m.value += bonus[pt] * v;
+                int v = threatByLesser[pt] & to ? -20 : 20 * bool(threatByLesser[pt] & from);
+                m.value += PieceValue[pt] * v;
             }
 
             if (ply < LOW_PLY_HISTORY_SIZE)

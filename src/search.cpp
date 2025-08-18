@@ -842,8 +842,8 @@ Value Search::Worker::search(
             Value futilityMult = 91 - 21 * (!ss->ttHit);
 
             return futilityMult * d                                //
-                 - 2094 * improving * futilityMult / 1024          //
-                 - 1324 * opponentWorsening * futilityMult / 4096  //
+                 - 160 * improving          //
+                 - 28 * opponentWorsening  //
                  + (ss - 1)->statScore / 331                       //
                  + std::abs(correctionValue) / 158105;
         };

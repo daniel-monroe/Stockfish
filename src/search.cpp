@@ -915,10 +915,11 @@ Value Search::Worker::search(
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
         Depth      dynamicReduction = (ss->staticEval - beta) / 306;
-        Depth      probCutDepth     = std::max(depth - 5 - dynamicReduction, 0);
 
         while ((move = mp.next_move()) != Move::none())
-        {
+        {   
+            Depth probCutDepth = std::max(depth - 5 - dynamicReduction - pos.see_ge(move, KnightValue), 0);
+
             assert(move.is_ok());
 
             if (move == excludedMove || !pos.legal(move))

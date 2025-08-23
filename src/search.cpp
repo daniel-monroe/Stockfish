@@ -608,7 +608,7 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta;
+    Value bestValue, value, eval, maxValue, probCutBeta, evDiff;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     int   priorReduction;
@@ -824,9 +824,11 @@ Value Search::Worker::search(
     improving         = ss->staticEval > (ss - 2)->staticEval;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
-    if (priorReduction >= (depth < 10 ? 2 : 3) && !opponentWorsening)
+    evDiff = ss->staticEval + std::min(correctionValue / 65536, 0) + (ss - 1)->staticEval;
+
+    if (priorReduction >= 3 && evDiff < 0)
         depth++;
-    if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 173)
+    if (priorReduction >= 2 && depth >= 2 && evDiff > 173)
         depth--;
 
     // Step 7. Razoring

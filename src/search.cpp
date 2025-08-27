@@ -1171,7 +1171,7 @@ moves_loop:  // When in check, search starts here
         
         if (ttData.move && move == (ss + 2)->ttMove && pos.see_ge(move, 0)
             && pos.capture_stage(move) == pos.capture_stage(ttData.move))
-            r -= 1024;
+            r -= 2048;
 
 
         // Step 16. Make the move

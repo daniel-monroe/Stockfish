@@ -259,6 +259,7 @@ void Search::Worker::iterative_deepening() {
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
+        (ss - i)->unadjustedStaticEval          = VALUE_NONE;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -776,7 +777,7 @@ Value Search::Worker::search(
     if (ss->inCheck)
     {
         // Skip early pruning when in check
-        ss->staticEval = eval = (ss - 2)->staticEval;
+        ss->staticEval = ss->unadjustedStaticEval = eval = (ss - 2)->staticEval;
         improving             = false;
         goto moves_loop;
     }
@@ -805,6 +806,8 @@ Value Search::Worker::search(
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
                        unadjustedStaticEval, tt.generation());
     }
+
+    ss->unadjustedStaticEval = unadjustedStaticEval;
 
     // Use static evaluation difference to improve quiet move ordering
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
@@ -1408,8 +1411,8 @@ moves_loop:  // When in check, search starts here
         bonusScale -= (ss - 1)->statScore / 104;
         bonusScale += std::min(63 * depth, 508);
         bonusScale += 184 * ((ss - 1)->moveCount > 8);
-        bonusScale += 143 * (!ss->inCheck && bestValue <= ss->staticEval - 92);
-        bonusScale += 149 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 70);
+        bonusScale += 143 * (!ss->inCheck && bestValue <= unadjustedStaticEval - 92);
+        bonusScale += 149 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->unadjustedStaticEval - 70);
 
         bonusScale = std::max(bonusScale, 0);
 

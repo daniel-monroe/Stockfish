@@ -1168,6 +1168,12 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
+        
+        if (ttData.move && move == (ss + 2)->ttMove && pos.see_ge(move, 0)
+            && pos.capture_stage(move) == pos.capture_stage(ttData.move))
+            r -= 1024;
+
+
         // Step 16. Make the move
         do_move(pos, move, st, givesCheck, ss);
 
@@ -1194,9 +1200,6 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture
         if (ttCapture)
             r += 1415;
-
-        if (ttData.move && move == (ss + 2)->ttMove && pos.see_ge(move, 0) && pos.capture_stage(move) == pos.capture_stage(ttData.move))
-            r -= 1024;
 
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 2)

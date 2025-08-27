@@ -262,7 +262,10 @@ void Search::Worker::iterative_deepening() {
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
-        (ss + i)->ply = i;
+    {
+        (ss + i)->ply    = i;
+        (ss + i)->ttMove = Move::none();
+    }
 
     ss->pv = pv;
 
@@ -671,6 +674,9 @@ Value Search::Worker::search(
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+
+    if ((ss - 1)->moveCount == 1)
+        ss->ttMove = ttData.move;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -1198,6 +1204,10 @@ moves_loop:  // When in check, search starts here
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
             r -= 2018;
+
+        // For first picked move (ttMove) reduce reduction
+        if (move == (ss + 2)->ttMove)
+            r -= 1024;
 
         if (capture)
             ss->statScore = 803 * int(PieceValue[pos.captured_piece()]) / 128

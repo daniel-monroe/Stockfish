@@ -1164,9 +1164,8 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
-        
-        if (move == (ss - 2)->ttMove && pos.see_ge(move, 0)
-            && pos.capture_stage(move) == pos.capture_stage((ss - 2)->ttMove))
+
+        if (move == (ss - 2)->ttMove && pos.see_ge(move, 0))
             r -= 1024;
 
         // Step 16. Make the move

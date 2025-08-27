@@ -675,7 +675,7 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
-    if ((ss - 1)->moveCount == 1)
+    if ((ss - 1)->moveCount == 1 && (ss - 2)->moveCount == 1)
         ss->ttMove = ttData.move;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
@@ -1195,6 +1195,9 @@ moves_loop:  // When in check, search starts here
         if (ttCapture)
             r += 1415;
 
+        if (ttData.move && move == (ss + 2)->ttMove && pos.see_ge(move, 0) && pos.capture_stage(move) == pos.capture_stage(ttData.move))
+            r -= 1024;
+
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 2)
             r += 1051 + allNode * 814;
@@ -1205,9 +1208,7 @@ moves_loop:  // When in check, search starts here
         if (move == ttData.move)
             r -= 2018;
 
-        // For first picked move (ttMove) reduce reduction
-        if (move == (ss + 2)->ttMove)
-            r -= 1024;
+
 
         if (capture)
             ss->statScore = 803 * int(PieceValue[pos.captured_piece()]) / 128

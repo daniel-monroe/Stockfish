@@ -672,6 +672,8 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
+    ss->ttMove = ttData.move;
+
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
 
@@ -1194,6 +1196,10 @@ moves_loop:  // When in check, search starts here
             r += 1051 + allNode * 814;
 
         r += (ss + 1)->quietMoveStreak * 50;
+
+        if (move == (ss - 2)->ttMove && pos.see_ge(move, 0)
+            && pos.capture_stage(move) == pos.capture_stage((ss - 2)->ttMove))
+            r -= 1024;
 
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)

@@ -1166,7 +1166,7 @@ moves_loop:  // When in check, search starts here
 
 
         if (move == (ss - 2)->ttMove && pos.see_ge(move, 0))
-            r -= 1024;
+            r -= 2048;
 
         // Step 16. Make the move
         do_move(pos, move, st, givesCheck, ss);

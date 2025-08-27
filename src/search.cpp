@@ -1169,8 +1169,7 @@ moves_loop:  // When in check, search starts here
         }
 
         
-        if (ttData.move && move == (ss + 2)->ttMove && pos.see_ge(move, 0)
-            && pos.capture_stage(move) == pos.capture_stage(ttData.move))
+        if (move == (ss + 2)->ttMove && pos.see_ge(move, 0))
             r -= 1024;
 
 

@@ -1164,6 +1164,11 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
+        
+        if (move == (ss - 2)->ttMove && pos.see_ge(move, 0)
+            && pos.capture_stage(move) == pos.capture_stage((ss - 2)->ttMove))
+            r -= 1024;
+
         // Step 16. Make the move
         do_move(pos, move, st, givesCheck, ss);
 
@@ -1196,10 +1201,6 @@ moves_loop:  // When in check, search starts here
             r += 1051 + allNode * 814;
 
         r += (ss + 1)->quietMoveStreak * 50;
-
-        if (move == (ss - 2)->ttMove && pos.see_ge(move, 0)
-            && pos.capture_stage(move) == pos.capture_stage((ss - 2)->ttMove))
-            r -= 1024;
 
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)

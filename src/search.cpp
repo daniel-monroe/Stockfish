@@ -1430,14 +1430,6 @@ moves_loop:  // When in check, search starts here
               << scaledBonus * 1164 / 32768;
     }
 
-    // Bonus for prior capture countermove that caused the fail low
-    else if (priorCapture && prevSq != SQ_NONE)
-    {
-        Piece capturedPiece = pos.captured_piece();
-        assert(capturedPiece != NO_PIECE);
-        captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)] << 964;
-    }
-
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
 

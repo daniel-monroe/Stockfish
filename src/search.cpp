@@ -89,6 +89,21 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     return 9536 * pcv + 8494 * micv + 10132 * (wnpcv + bnpcv) + 7156 * cntcv;
 }
 
+
+int borrection_value(const Worker& w, const Position& pos, const Stack* const ss) {
+    const Color us    = pos.side_to_move();
+    const auto  m     = (ss - 1)->currentMove;
+    const auto  pcv   = w.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
+    const auto  micv  = w.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
+    const auto  wnpcv = w.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
+    const auto  bnpcv = w.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
+    const auto  cntcv =
+      m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+                 : 8;
+
+    return 9536 * std::abs(pcv) + 8494 * std::abs(micv) + 10132 * (std::abs(wnpcv) + std::abs(bnpcv)) + 7156 * std::abs(cntcv);
+}
+
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(const Value v, const int cv) {
@@ -791,6 +806,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
+    const auto borrectionValue      = borrection_value(*this, pos, ss) / 4;
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -1184,7 +1200,7 @@ moves_loop:  // When in check, search starts here
 
         r += 543;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
-        r -= std::abs(correctionValue) / 30450;
+        r -= borrectionValue / 30450;
 
         // Increase reduction for cut nodes
         if (cutNode)

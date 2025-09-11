@@ -162,8 +162,7 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
             // histories
             m.value = 2 * (*mainHistory)[us][m.from_to()];
             m.value += 2 * (*pawnHistory)[pawn_history_index(pos)][pc][to];
-            int minorIndex =
-              (us == BLACK ? non_pawn_index<WHITE>(pos) : non_pawn_index<BLACK>(pos));
+            int minorIndex = material_index(pos);
 
             m.value += 2 * (*minorHistory)[minorIndex][pc][to];
             m.value += (*continuationHistory[0])[pc][to];

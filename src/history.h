@@ -57,6 +57,10 @@ inline int minor_piece_index(const Position& pos) {
     return pos.minor_piece_key() & (CORRECTION_HISTORY_SIZE - 1);
 }
 
+inline int material_index(const Position& pos) {
+    return pos.material_key() & (CORRECTION_HISTORY_SIZE - 1);
+}
+
 template<Color c>
 inline int non_pawn_index(const Position& pos) {
     return pos.non_pawn_key(c) & (CORRECTION_HISTORY_SIZE - 1);

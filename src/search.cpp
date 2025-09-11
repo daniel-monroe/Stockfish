@@ -1175,6 +1175,9 @@ moves_loop:  // When in check, search starts here
         newDepth += extension;
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
+
+
+
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
             r -= 2618 + PvNode * 991 + (ttData.value > alpha) * 903
@@ -1203,6 +1206,17 @@ moves_loop:  // When in check, search starts here
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
             r -= 2018;
+
+         if (depth >= 8)
+         {
+            Key nextPosKey                             = pos.key();
+            auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+            if (is_valid(ttDataNext.value))
+            {
+                if (-ttDataNext.value > ttData.value + 200)
+                    r += 1024;
+            }
+         }
 
         if (capture)
             ss->statScore = 803 * int(PieceValue[pos.captured_piece()]) / 128

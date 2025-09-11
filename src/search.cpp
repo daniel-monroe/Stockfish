@@ -1191,7 +1191,7 @@ moves_loop:  // When in check, search starts here
             r += 3094 + 1056 * !ttData.move;
 
         // Increase reduction if ttMove is a capture
-        if (ttCapture)
+        if (ttCapture && !capture && !givesCheck)
             r += 1415;
 
         // Increase reduction if next ply has a lot of fail high

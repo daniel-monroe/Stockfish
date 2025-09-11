@@ -350,6 +350,10 @@ void Position::set_state() const {
         Piece  pc = piece_on(s);
         st->key ^= Zobrist::psq[pc][s];
 
+
+        if (type_of(pc) == KING)
+            st->pawnKey ^= Zobrist::psq[pc][s];
+
         if (type_of(pc) == PAWN)
             st->pawnKey ^= Zobrist::psq[pc][s];
 
@@ -739,6 +743,7 @@ DirtyPiece Position::do_move(Move                      m,
 
         k ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
         st->nonPawnKey[us] ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
+        st->pawnKey ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
         captured = NO_PIECE;
     }
     else if (captured)
@@ -807,6 +812,11 @@ DirtyPiece Position::do_move(Move                      m,
     // Move the piece. The tricky Chess960 castling is handled earlier
     if (m.type_of() != CASTLING)
         move_piece(from, to);
+
+    if (type_of(pc) == KING)
+    {
+      st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    }
 
     // If the moving piece is a pawn do some special extra work
     if (type_of(pc) == PAWN)

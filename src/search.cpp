@@ -1885,7 +1885,7 @@ void update_quiet_histories(
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()]
       << (bonus * (bonus > 0 ? 704 : 439) / 1024) + 70;
 
-    int minorIndex = minor_piece_index(pos);
+    int minorIndex = (us == WHITE ? non_pawn_index<WHITE>(pos) : non_pawn_index<BLACK>(pos));
     workerThread.minorHistory[minorIndex][pos.moved_piece(move)][move.to_sq()] << bonus;
 }
 

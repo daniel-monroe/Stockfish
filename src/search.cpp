@@ -1220,14 +1220,14 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 794 / 8192;
 
-        if (depth >= 8 && r > 2000)
+        if (depth >= 8 && r > 3000)
         {
             Key nextPosKey                             = pos.key();
             auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
             if (is_valid(ttDataNext.value))
             {
-                if (-ttDataNext.value > ttData.value + 200)
-                    r += 1024;
+                if (-ttDataNext.value < ttData.value)
+                    r -= 1024;
             }
         }
 

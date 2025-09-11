@@ -1207,16 +1207,7 @@ moves_loop:  // When in check, search starts here
         if (move == ttData.move)
             r -= 2018;
 
-         if (depth >= 8)
-         {
-            Key nextPosKey                             = pos.key();
-            auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
-            if (is_valid(ttDataNext.value))
-            {
-                if (-ttDataNext.value > ttData.value + 200)
-                    r += 1024;
-            }
-         }
+
 
         if (capture)
             ss->statScore = 803 * int(PieceValue[pos.captured_piece()]) / 128
@@ -1228,6 +1219,17 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 794 / 8192;
+
+        if (depth >= 8 && r > 2000)
+        {
+            Key nextPosKey                             = pos.key();
+            auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+            if (is_valid(ttDataNext.value))
+            {
+                if (-ttDataNext.value > ttData.value + 200)
+                    r += 1024;
+            }
+        }
 
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)

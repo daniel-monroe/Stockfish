@@ -1258,7 +1258,7 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 1118;
 
-            if (move == ttData.move && rootDepth > 8 && ss->extensionsGranted <= 1)
+            if (move == ttData.move && rootDepth > 8 && ss->extensionsGranted == 0)
             {
                 newDepth = std::max(newDepth, 1);
                 ss->extensionsGranted++;

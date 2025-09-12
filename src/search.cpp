@@ -262,6 +262,7 @@ void Search::Worker::iterative_deepening() {
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
+        (ss - i)->extensionsGranted             = 0;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -673,6 +674,7 @@ Value Search::Worker::search(
     bestMove       = Move::none();
     priorReduction = (ss - 1)->reduction;
     (ss - 1)->reduction = 0;
+    ss->extensionsGranted = (ss - 1)->extensionsGranted;
     ss->statScore       = 0;
     (ss + 2)->cutoffCnt = 0;
 
@@ -1255,6 +1257,13 @@ moves_loop:  // When in check, search starts here
             // Increase reduction if ttMove is not present
             if (!ttData.move)
                 r += 1118;
+
+            if (move == ttData.move && rootDepth > 8 && ss->extensionsGranted <= 1)
+            {
+                newDepth = std::max(newDepth, 1);
+                ss->extensionsGranted++;
+            }
+
 
             // Note that if expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,

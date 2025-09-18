@@ -1139,6 +1139,31 @@ moves_loop:  // When in check, search starts here
             else if (value >= beta && !is_decisive(value))
                 return value;
 
+            else
+            {
+                if (newDepth >= 12 && value >= beta - 50)
+                {
+                    singularDepth = newDepth * 2 / 3;
+
+                    ss->excludedMove = move;
+                    value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth,
+                                          cutNode);
+                    ss->excludedMove = Move::none();
+
+                    if (value >= beta && !is_decisive(value))
+                        return value;
+                }
+
+            
+                if (ttData.value >= beta)
+                    extension = -3;
+
+                // If we are on a cutNode but the ttMove is not assumed to fail high
+                // over current beta
+                else if (cutNode)
+                    extension = -2;
+            }
+
             // Negative extensions
             // If other moves failed high over (ttValue - margin) without the
             // ttMove on a reduced search, but we cannot do multi-cut because
@@ -1146,14 +1171,7 @@ moves_loop:  // When in check, search starts here
             // if the ttMove is singular or can do a multi-cut, so we reduce the
             // ttMove in favor of other moves based on some conditions:
 
-            // If the ttMove is assumed to fail high over current beta
-            else if (ttData.value >= beta)
-                extension = -3;
 
-            // If we are on a cutNode but the ttMove is not assumed to fail high
-            // over current beta
-            else if (cutNode)
-                extension = -2;
         }
 
         // Step 16. Make the move

@@ -1156,7 +1156,7 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
-        else if (!rootNode && move == ttData.move && !excludedMove && depth >= 6 + ss->ttPv
+        else if (!rootNode && move == ttData.move && !excludedMove
                  && is_valid(ttData.value) && !is_decisive(ttData.value)
                  && ttData.depth >= depth - 3 && priorCapture && pos.see_ge(move, 100))
             extension = 1;

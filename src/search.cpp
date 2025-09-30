@@ -478,7 +478,7 @@ void Search::Worker::iterative_deepening() {
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
-                totalTime = stdp::min(502.0, totalTime);
+                totalTime = std::min(502.0, totalTime);
 
             auto elapsedTime = elapsed();
 

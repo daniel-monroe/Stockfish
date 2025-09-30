@@ -700,6 +700,31 @@ Value Search::Worker::search(
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -2142);
         }
 
+        if (ttData.value < beta && !priorCapture && prevSq != SQ_NONE)
+        {
+            int bonusScale = -228;
+            bonusScale -= (ss - 1)->statScore / 104;
+            bonusScale += std::min(63 * depth, 508);
+            bonusScale += 184 * ((ss - 1)->moveCount > 8);
+            bonusScale += 143 * (!ss->inCheck && bestValue <= ss->staticEval - 92);
+            bonusScale += 149 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 70);
+
+            bonusScale = std::max(bonusScale, 0);
+
+            const int scaledBonus = std::min(144 * depth - 92, 1365) * bonusScale;
+
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                          scaledBonus * 400 / 32768);
+
+            mainHistory[~us][((ss - 1)->currentMove).from_to()] << scaledBonus * 220 / 32768;
+
+            if (type_of(pos.piece_on(prevSq)) != PAWN
+                && ((ss - 1)->currentMove).type_of() != PROMOTION)
+                pawnHistory[pawn_history_index(pos)][pos.piece_on(prevSq)][prevSq]
+                  << scaledBonus * 1164 / 32768;
+
+        }
+
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 96)

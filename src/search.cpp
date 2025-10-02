@@ -1428,7 +1428,7 @@ moves_loop:  // When in check, search starts here
         bonusScale += 143 * (!ss->inCheck && bestValue <= ss->staticEval - 92);
         bonusScale += 149 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 70);
 
-        bonusScale = std::max(bonusScale, 0);
+        bonusScale = std::max(bonusScale * 2, 0);
 
         const int scaledBonus = std::min(144 * depth - 92, 1365) * bonusScale;
 

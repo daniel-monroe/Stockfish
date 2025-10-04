@@ -1243,6 +1243,9 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 1118;
 
+            if (pos.see_ge(move, 1) && move == ttData.move)
+                r = 0;
+
             // Note that if expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
                                    newDepth - (r > 3212) - (r > 4784 && newDepth > 2), !cutNode);

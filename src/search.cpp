@@ -681,6 +681,7 @@ Value Search::Worker::search(
         && is_valid(ttData.value)  // Can happen when !ttHit or when access race in probe()
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
         && (cutNode == (ttData.value >= beta) || depth > 5)
+        && pos.rule50_count() < 96
         // avoid a TT cutoff if the rule50 count is high and the TT move is zeroing
         && (depth > 8 || ttData.move == Move::none() || pos.rule50_count() < 80
             || (!ttCapture && type_of(pos.moved_piece(ttData.move)) != PAWN)))
@@ -700,25 +701,23 @@ Value Search::Worker::search(
 
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
-        if (pos.rule50_count() < 96)
-        {
-            if (depth >= 8 && ttData.move && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move)
+        if (depth >= 8 && ttData.move && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move)
                 && !is_decisive(ttData.value))
-            {
-                pos.do_move(ttData.move, st);
-                Key nextPosKey                             = pos.key();
-                auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
-                pos.undo_move(ttData.move);
+        {
+            pos.do_move(ttData.move, st);
+            Key nextPosKey                             = pos.key();
+            auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+            pos.undo_move(ttData.move);
 
-                // Check that the ttValue after the tt move would also trigger a cutoff
-                if (!is_valid(ttDataNext.value))
-                    return ttData.value;
-                if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
-                    return ttData.value;
-            }
-            else
+            // Check that the ttValue after the tt move would also trigger a cutoff
+            if (!is_valid(ttDataNext.value))
+                return ttData.value;
+            if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
                 return ttData.value;
         }
+        else
+            return ttData.value;
+        
     }
 
     // Step 5. Tablebases probe

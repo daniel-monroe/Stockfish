@@ -1263,6 +1263,14 @@ moves_loop:  // When in check, search starts here
         // Step 19. Undo move
         undo_move(pos, move);
 
+
+        if (depth >= 8 && move == ttData.move)
+        {
+            auto [ttHitAgain, ttDataAgain, ttWriterAgain] = tt.probe(posKey);
+            Move otherMove = ttHitAgain ? ttDataAgain.move : Move::none();
+            mp.set_other_tt_move(otherMove);
+        }
+
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
         // Step 20. Check for a new best move

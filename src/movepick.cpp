@@ -151,7 +151,10 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
         const PieceType pt            = type_of(pc);
         const Piece     capturedPiece = pos.piece_on(to);
 
-        if constexpr (Type == CAPTURES)
+        if (m == otherTTMove)
+            m.value = (1 << 28);
+
+        else if constexpr (Type == CAPTURES)
             m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
                     + 7 * int(PieceValue[capturedPiece]) + 1024 * bool(pos.check_squares(pt) & to);
 
@@ -183,7 +186,7 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
         else  // Type == EVASIONS
         {
             if (pos.capture_stage(m))
-                m.value = PieceValue[capturedPiece] + (1 << 28);
+                m.value = PieceValue[capturedPiece] + (1 << 27);
             else
             {
                 m.value = (*mainHistory)[us][m.from_to()] + (*continuationHistory[0])[pc][to];

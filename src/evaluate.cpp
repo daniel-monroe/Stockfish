@@ -193,6 +193,8 @@ std::pair<Value, std::int32_t> Eval::evaluate(const Position& pos) {
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
+    v = (v / 2) * 2 + (error < 40);
+
     return {v, error};
 }
 

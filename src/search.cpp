@@ -1120,7 +1120,7 @@ moves_loop:  // When in check, search starts here
             r--;
 
         // small error predicted
-        if (ss->staticEval % 2 == 1)
+        if (ss->staticEval & 1)
             r++;
 
         // Decrease reduction if ttMove has been singularly extended (~1 Elo)

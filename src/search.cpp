@@ -721,6 +721,46 @@ Value Search::Worker::search(
         }
     }
 
+    const PieceToHistory* contHist[] = {
+      (ss - 1)->continuationHistory, (ss - 2)->continuationHistory, (ss - 3)->continuationHistory,
+      (ss - 4)->continuationHistory, (ss - 5)->continuationHistory, (ss - 6)->continuationHistory};
+
+    
+    if (depth >= 8 && !PvNode && !excludedMove && ttHit && pos.rule50_count() < 90)
+    { 
+        MovePicker dummyMP(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory,
+                           contHist, &pawnHistory, ss->ply);
+
+        while ((move = dummyMP.next_move()) != Move::none())
+        {
+            assert(move.is_ok());
+
+            if (!pos.legal(move))
+                continue;
+
+            if (!pos.see_ge(move, 0))
+                continue;
+            
+            if (move == ttData.move)
+                continue;
+
+
+            pos.do_move(move, st);
+            Key nextPosKey                             = pos.key();
+            auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+            pos.undo_move(move);
+
+            // if ttDataNext <= -beta we have a cutoff
+            if (is_valid(ttDataNext.value) && ttDataNext.depth >= depth
+                && (ttDataNext.bound & BOUND_UPPER) && -ttDataNext.value >= beta
+                && !is_decisive(ttDataNext.value))
+                return -ttDataNext.value;
+        }
+    }
+
+
+
+
     // Step 5. Tablebases probe
     if (!rootNode && !excludedMove && tbConfig.cardinality)
     {
@@ -960,11 +1000,6 @@ moves_loop:  // When in check, search starts here
     if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return probCutBeta;
-
-    const PieceToHistory* contHist[] = {
-      (ss - 1)->continuationHistory, (ss - 2)->continuationHistory, (ss - 3)->continuationHistory,
-      (ss - 4)->continuationHistory, (ss - 5)->continuationHistory, (ss - 6)->continuationHistory};
-
 
     MovePicker mp(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory, contHist,
                   &pawnHistory, ss->ply);

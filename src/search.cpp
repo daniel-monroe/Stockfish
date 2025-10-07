@@ -1488,7 +1488,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Key   posKey;
     Move  move, bestMove;
     Value bestValue, value, futilityBase;
-    bool  pvHit, givesCheck, capture;
+    bool  pvHit, givesCheck;
     int   moveCount;
 
     // Step 1. Initialize node
@@ -1596,7 +1596,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             continue;
 
         givesCheck = pos.gives_check(move);
-        capture    = pos.capture_stage(move);
 
         moveCount++;
 
@@ -1628,11 +1627,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                     continue;
                 }
             }
-
-            // Continuation history based pruning
-            if (!capture
-                && pawnHistory[pawn_history_index(pos)][pos.moved_piece(move)][move.to_sq()] < 7300)
-                continue;
 
             // Do not search moves with bad enough SEE values
             if (!pos.see_ge(move, -78))

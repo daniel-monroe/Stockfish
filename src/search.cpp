@@ -503,7 +503,7 @@ void Search::Worker::iterative_deepening() {
                     threads.stop = true;
             }
             else
-                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.503;
+                threads.increaseDepth = true;
         }
 
         mainThread->iterValue[iterIdx] = bestValue;

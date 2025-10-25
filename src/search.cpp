@@ -523,14 +523,19 @@ void Search::Worker::iterative_deepening() {
 }
 
 
-void Search::Worker::do_move(Position& pos, const Move move, StateInfo& st, Stack* const ss) {
-    do_move(pos, move, st, pos.gives_check(move), ss);
+void Search::Worker::do_move(
+  Position& pos, const Move move, StateInfo& st, Stack* const ss, bool setCheckInfo) {
+    do_move(pos, move, st, pos.gives_check(move), ss, setCheckInfo);
 }
 
-void Search::Worker::do_move(
-  Position& pos, const Move move, StateInfo& st, const bool givesCheck, Stack* const ss) {
+void Search::Worker::do_move(Position&    pos,
+                             const Move   move,
+                             StateInfo&   st,
+                             const bool   givesCheck,
+                             Stack* const ss,
+                             bool         setCheckInfo) {
     bool       capture = pos.capture_stage(move);
-    DirtyPiece dp      = pos.do_move(move, st, givesCheck, &tt);
+    DirtyPiece dp      = pos.do_move(move, st, givesCheck, &tt, setCheckInfo);
     nodes.fetch_add(1, std::memory_order_relaxed);
     accumulatorStack.push(dp);
     if (ss != nullptr)
@@ -678,6 +683,9 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
+
+
+
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
 
@@ -707,6 +715,8 @@ Value Search::Worker::search(
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 96)
         {
+            if (depth >= 8)
+                pos.set_check_info();
             if (depth >= 8 && ttData.move && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move)
                 && !is_decisive(ttData.value))
             {
@@ -725,6 +735,9 @@ Value Search::Worker::search(
                 return ttData.value;
         }
     }
+
+
+
 
     // Step 5. Tablebases probe
     if (!rootNode && !excludedMove && tbConfig.cardinality)
@@ -779,14 +792,22 @@ Value Search::Worker::search(
         }
     }
 
+
+
+
+
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
+
+
     if (ss->inCheck)
     {
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
         improving             = false;
+        pos.set_check_info();
+
         goto moves_loop;
     }
     else if (excludedMove)
@@ -815,6 +836,7 @@ Value Search::Worker::search(
                        unadjustedStaticEval, tt.generation());
     }
 
+
     // Use static evaluation difference to improve quiet move ordering
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
@@ -838,12 +860,6 @@ Value Search::Worker::search(
     if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 173)
         depth--;
 
-    // Step 7. Razoring
-    // If eval is really low, skip search entirely and return the qsearch value.
-    // For PvNodes, we must have a guard against mates being returned.
-    if (!PvNode && eval < alpha - 514 - 294 * depth * depth)
-        return qsearch<NonPV>(pos, ss, alpha, beta);
-
     // Step 8. Futility pruning: child node
     // The depth condition is important for mate finding.
     {
@@ -861,6 +877,16 @@ Value Search::Worker::search(
             && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
             return (2 * beta + eval) / 3;
     }
+
+    pos.set_check_info();
+
+    
+    // Step 7. Razoring
+    // If eval is really low, skip search entirely and return the qsearch value.
+    // For PvNodes, we must have a guard against mates being returned.
+    if (!PvNode && eval < alpha - 514 - 294 * depth * depth)
+        return qsearch<NonPV>(pos, ss, alpha, beta);
+
 
     // Step 9. Null move search with verification search
     if (cutNode && ss->staticEval >= beta - 18 * depth + 390 && !excludedMove
@@ -934,7 +960,7 @@ Value Search::Worker::search(
 
             assert(pos.capture_stage(move));
 
-            do_move(pos, move, st, ss);
+            do_move(pos, move, st, ss, false);
 
             // Perform a preliminary qsearch to verify that the move holds
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
@@ -1161,7 +1187,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 16. Make the move
-        do_move(pos, move, st, givesCheck, ss);
+        do_move(pos, move, st, givesCheck, ss, false);
 
         // Add extension to new depth
         newDepth += extension;
@@ -1585,11 +1611,15 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
 
+    pos.set_check_info();
+
+
     // Initialize a MovePicker object for the current position, and prepare to search
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &mainHistory, &lowPlyHistory, &captureHistory,
                   contHist, &pawnHistory, ss->ply);
+
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1644,7 +1674,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
 
         // Step 7. Make and search the move
-        do_move(pos, move, st, givesCheck, ss);
+        do_move(pos, move, st, givesCheck, ss, false);
 
         value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
         undo_move(pos, move);

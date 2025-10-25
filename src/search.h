@@ -296,9 +296,13 @@ class Worker {
    private:
     void iterative_deepening();
 
-    void do_move(Position& pos, const Move move, StateInfo& st, Stack* const ss);
-    void
-    do_move(Position& pos, const Move move, StateInfo& st, const bool givesCheck, Stack* const ss);
+    void do_move(Position& pos, const Move move, StateInfo& st, Stack* const ss, bool setCheckInfo);
+    void do_move(Position&    pos,
+                 const Move   move,
+                 StateInfo&   st,
+                 const bool   givesCheck,
+                 Stack* const ss,
+                 bool         setCheckInfo);
     void do_null_move(Position& pos, StateInfo& st);
     void undo_move(Position& pos, const Move move);
     void undo_null_move(Position& pos);

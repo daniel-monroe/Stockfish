@@ -131,11 +131,12 @@ class Position {
     Piece captured_piece() const;
 
     // Doing and undoing moves
-    void       do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
-    DirtyPiece do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt);
-    void       undo_move(Move m);
-    void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
-    void       undo_null_move();
+    void       do_move(Move m, StateInfo& newSt, const TranspositionTable* tt, bool setCheckInfo);
+    DirtyPiece do_move(
+      Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt, bool setCheckInfo);
+    void undo_move(Move m);
+    void do_null_move(StateInfo& newSt, const TranspositionTable& tt);
+    void undo_null_move();
 
     // Static Exchange Evaluation
     bool see_ge(Move m, int threshold = 0) const;
@@ -167,12 +168,13 @@ class Position {
 
     void put_piece(Piece pc, Square s);
     void remove_piece(Square s);
+    void set_check_info() const;
+
 
    private:
     // Initialization helpers (used while setting up a position)
     void set_castling_right(Color c, Square rfrom);
     void set_state() const;
-    void set_check_info() const;
 
     // Other helpers
     void move_piece(Square from, Square to);
@@ -354,8 +356,11 @@ inline void Position::move_piece(Square from, Square to) {
     board[to]   = pc;
 }
 
-inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {
-    do_move(m, newSt, gives_check(m), tt);
+inline void Position::do_move(Move                      m,
+                              StateInfo&                newSt,
+                              const TranspositionTable* tt           = nullptr,
+                              bool                      setCheckInfo = true) {
+    do_move(m, newSt, gives_check(m), tt, setCheckInfo);
 }
 
 inline StateInfo* Position::state() const { return st; }

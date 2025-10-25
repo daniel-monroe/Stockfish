@@ -690,7 +690,8 @@ bool Position::gives_check(Move m) const {
 DirtyPiece Position::do_move(Move                      m,
                              StateInfo&                newSt,
                              bool                      givesCheck,
-                             const TranspositionTable* tt = nullptr) {
+                             const TranspositionTable* tt           = nullptr,
+                             bool                      setCheckInfo = true) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -865,9 +866,10 @@ DirtyPiece Position::do_move(Move                      m,
     st->checkersBB = givesCheck ? attackers_to(square<KING>(them)) & pieces(us) : 0;
 
     sideToMove = ~sideToMove;
+    
+    if (setCheckInfo)
+        set_check_info();
 
-    // Update king attacks used for fast check detection
-    set_check_info();
 
     // Accurate e.p. info is needed for correct zobrist key generation and 3-fold checking
     while (checkEP)
@@ -1202,9 +1204,12 @@ bool Position::see_ge(Move m, int threshold) const {
 // Tests whether the position is drawn by 50-move rule
 // or by repetition. It does not detect stalemates.
 bool Position::is_draw(int ply) const {
-
-    if (st->rule50 > 99 && (!checkers() || MoveList<LEGAL>(*this).size()))
-        return true;
+    if (st->rule50 > 99)
+    {
+        set_check_info();
+        if (!checkers() || MoveList<LEGAL>(*this).size())
+            return true;
+    }
 
     return is_repetition(ply);
 }

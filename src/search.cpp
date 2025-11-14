@@ -1176,6 +1176,9 @@ moves_loop:  // When in check, search starts here
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 30450;
 
+        if (unadjustedStaticEval & 1)
+          r -= 1024;
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 3094 + 1056 * !ttData.move;
@@ -1437,6 +1440,22 @@ moves_loop:  // When in check, search starts here
     if (bestValue <= alpha)
         ss->ttPv = ss->ttPv || (ss - 1)->ttPv;
 
+    // Adjust correction history if the best move is not a capture
+    // and the error direction matches whether we are above/below bounds.
+    if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
+        && (bestValue < ss->staticEval) == !bestMove)
+    {
+        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth
+                                  / (8 + 2 * (bestValue > ss->staticEval)),
+                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+
+
+        unadjustedStaticEval =
+          (unadjustedStaticEval / 2) * 2 + (std::abs(bestValue - ss->staticEval) > 100);
+        update_correction_history(pos, ss, *this, bonus);
+    }
+
+
     // Write gathered information in transposition table. Note that the
     // static evaluation is saved as it was before correction history.
     if (!excludedMove && !(rootNode && pvIdx))
@@ -1447,16 +1466,6 @@ moves_loop:  // When in check, search starts here
                        moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), bestMove,
                        unadjustedStaticEval, tt.generation());
 
-    // Adjust correction history if the best move is not a capture
-    // and the error direction matches whether we are above/below bounds.
-    if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
-        && (bestValue < ss->staticEval) == !bestMove)
-    {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth
-                                  / (8 + 2 * (bestValue > ss->staticEval)),
-                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        update_correction_history(pos, ss, *this, bonus);
-    }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 

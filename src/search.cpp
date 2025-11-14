@@ -1451,7 +1451,7 @@ moves_loop:  // When in check, search starts here
 
 
         unadjustedStaticEval =
-          (unadjustedStaticEval / 2) * 2 + (std::abs(bestValue - ss->staticEval) > 100);
+          (unadjustedStaticEval / 2) * 2 + (std::abs(bestValue - ss->staticEval) > 70);
         update_correction_history(pos, ss, *this, bonus);
     }
 

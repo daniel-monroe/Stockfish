@@ -37,6 +37,10 @@
 
 namespace Stockfish {
 
+int rr1 = 236, rr2 = 468, rr3 = 18000, rr4 = 535, rr5 = 77777, rr6 = 7777, rr7 = 212;
+
+TUNE(rr1, rr2, rr3, rr4, rr5, rr6, rr7);
+
 // Returns a static, purely materialistic evaluation of the position from
 // the point of view of the side to move. It can be divided by PawnValue to get
 // an approximation of the material advantage on the board in terms of pawns.
@@ -65,7 +69,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     Value nnue = (125 * psqt + 131 * positional) / 128;
 
     // Re-evaluate the position when higher eval accuracy is worth the time spent
-    if (smallNet && (std::abs(nnue) < 236))
+    if (smallNet && (std::abs(nnue) < rr1))
     {
         std::tie(psqt, positional) = networks.big.evaluate(pos, accumulators, caches.big);
         nnue                       = (125 * psqt + 131 * positional) / 128;
@@ -74,14 +78,14 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     // Blend optimism and eval with nnue complexity
     int nnueComplexity = std::abs(psqt - positional);
-    optimism += optimism * nnueComplexity / 468;
-    nnue -= nnue * nnueComplexity / 18000;
+    optimism += optimism * nnueComplexity / rr2;
+    nnue -= nnue * nnueComplexity / rr3;
 
-    int material = 535 * pos.count<PAWN>() + pos.non_pawn_material();
-    int v        = (nnue * (77777 + material) + optimism * (7777 + material)) / 77777;
+    int material = rr4 * pos.count<PAWN>() + pos.non_pawn_material();
+    int v        = (nnue * (rr5 + material) + optimism * (rr6 + material)) / rr5;
 
     // Damp down the evaluation linearly when shuffling
-    v -= v * pos.rule50_count() / 212;
+    v -= v * pos.rule50_count() / rr7;
 
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);

@@ -88,6 +88,18 @@ int pp1 = 124, pp2 = 80, pp3 = 1562, pp4 = 373, pp5 = 849, pp6 = 195, pp7 = 2267
 int pp9 = 876, pp10 = 1077, pp11 = 1509, pp12 = 622, pp13 = 1404;
 int qq7 = 776, qq8 = 957, qq9 = 888, qq10 = 532;
 
+int ttm1 = 1132, ttm2 = 211, ttm3 = 99, ttm4 = 57, ttm5 = 157, ttm6 = 52, ttm7 = 1157, ttm8 = 72,
+    ttm9 = 79, ttm10 = 110, ttm11 = 146, ttm12 = 224, ttm13 = 104, ttm14 = 190, ttm15 = 67,
+    ttm16 = 50;
+int ttbm1 = 10, ttbm2 = 92425;
+int ss1 = 224, ss2 = 64, ss3 = 306;
+int tt1 = 1157, tt2 = 648, tt3 = 288, tt4 = 576, tt5 = 140, tt6 = 441;
+
+
+int xx1 = 56, xx2 = 81, xx3 = 229958, xx4 = 198, xx5 = 212, xx6 = 921, xx7 = 45, xx8 = 76,
+    xx9 = 308, xx10 = 250, xx11 = 92, xx12 = 52;
+
+
 TUNE(aa1, aa2, aa3, aa4);
 TUNE(bb1, bb2, bb3, bb4);
 TUNE(cc1, cc2);
@@ -110,7 +122,11 @@ TUNE(pp1, pp2, pp3, pp4, pp5, pp6, pp7, pp8);
 TUNE(pp9, pp10, pp11, pp12, pp13);
 
 TUNE(qq7, qq8, qq9, qq10);
-
+TUNE(ttm1, ttm2, ttm3, ttm4, ttm5, ttm6, ttm7, ttm8, ttm9, ttm10);
+TUNE(ttm11, ttm12, ttm13, ttm14, ttm15, ttm16, ttbm1, ttbm2);
+TUNE(ss1, ss2, ss3);
+TUNE(tt1, tt2, tt3, tt4, tt5, tt6);
+TUNE(xx1, xx2, xx3, xx4, xx5, xx6, xx7, xx8, xx9, xx10, xx11, xx12);
 
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
@@ -515,20 +531,39 @@ void Search::Worker::iterative_deepening() {
             uint64_t nodesEffort =
               rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
-            double fallingEval =
-              (11.325 + 2.115 * (mainThread->bestPreviousAverageScore - bestValue)
-               + 0.987 * (mainThread->iterValue[iterIdx] - bestValue))
-              / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.5688, 1.5698);
+            // quantize these by dividing by 100
+            double tttm1  = double(ttm1) / 100;
+            double tttm2  = double(ttm2) / 100;
+            double tttm3  = double(ttm3) / 100;
+            double tttm4  = double(ttm4) / 100;
+            double tttm5  = double(ttm5) / 100;
+            double tttm6  = double(ttm6) / 100;
+            double tttm7  = double(ttm7) / 100;
+            double tttm8  = double(ttm8) / 100;
+            double tttm9  = double(ttm9) / 100;
+            double tttm10 = double(ttm10) / 100;
+            double tttm11 = double(ttm11) / 100;
+            double tttm12 = double(ttm12) / 100;
+            double tttm13 = double(ttm13) / 100;
+            double tttm14 = double(ttm14) / 100;
+            double tttm15 = double(ttm15) / 100;
+            double tttm16 = double(ttm16) / 100;
+
+            double fallingEval = (tttm1 + tttm2 * (mainThread->bestPreviousAverageScore - bestValue)
+                                  + tttm3 * (mainThread->iterValue[iterIdx] - bestValue))
+                               / 100.0;
+            fallingEval = std::clamp(fallingEval, tttm4, tttm5);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            double k      = 0.5189;
-            double center = lastBestMoveDepth + 11.57;
-            timeReduction = 0.723 + 0.79 / (1.104 + std::exp(-k * (completedDepth - center)));
+            double k      = tttm6;
+            double center = lastBestMoveDepth + tttm7;
+            timeReduction = tttm8 + tttm9 / (tttm10 + std::exp(-k * (completedDepth - center)));
             double reduction =
-              (1.455 + mainThread->previousTimeReduction) / (2.2375 * timeReduction);
-            double bestMoveInstability = 1.04 + 1.8956 * totBestMoveChanges / threads.size();
-            double highBestMoveEffort  = completedDepth >= 10 && nodesEffort >= 92425 ? 0.666 : 1.0;
+              (tttm11 + mainThread->previousTimeReduction) / (tttm12 * timeReduction);
+            double bestMoveInstability = tttm13 + tttm14 * totBestMoveChanges / threads.size();
+
+            double highBestMoveEffort =
+              completedDepth >= ttbm1 && nodesEffort >= ttbm2 ? tttm15 : 1.0;
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
                              * bestMoveInstability * highBestMoveEffort;
@@ -550,7 +585,7 @@ void Search::Worker::iterative_deepening() {
                     threads.stop = true;
             }
             else
-                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.503;
+                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * tttm16;
         }
 
         mainThread->iterValue[iterIdx] = bestValue;
@@ -966,7 +1001,7 @@ Value Search::Worker::search(
     // Step 11. ProbCut
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
-    probCutBeta = beta + 224 - 64 * improving;
+    probCutBeta = beta + ss1 - ss2 * improving;
     if (depth >= 3
         && !is_decisive(beta)
         // If value from transposition table is lower than probCutBeta, don't attempt
@@ -976,7 +1011,7 @@ Value Search::Worker::search(
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
-        Depth      probCutDepth = std::clamp(depth - 5 - (ss->staticEval - beta) / 306, 0, depth);
+        Depth      probCutDepth = std::clamp(depth - 5 - (ss->staticEval - beta) / ss3, 0, depth);
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -1157,12 +1192,11 @@ moves_loop:  // When in check, search starts here
 
         // (*Scaler) Generally, higher singularBeta (i.e closer to ttValue)
         // and lower extension margins scale well.
-
         if (!rootNode && move == ttData.move && !excludedMove && depth >= 6 + ss->ttPv
             && is_valid(ttData.value) && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
             && ttData.depth >= depth - 3)
         {
-            Value singularBeta  = ttData.value - (56 + 81 * (ss->ttPv && !PvNode)) * depth / 60;
+            Value singularBeta  = ttData.value - (xx1 + xx2 * (ss->ttPv && !PvNode)) * depth / 60;
             Depth singularDepth = newDepth / 2;
 
             ss->excludedMove = move;
@@ -1171,11 +1205,11 @@ moves_loop:  // When in check, search starts here
 
             if (value < singularBeta)
             {
-                int corrValAdj   = std::abs(correctionValue) / 229958;
-                int doubleMargin = -4 + 198 * PvNode - 212 * !ttCapture - corrValAdj
-                                 - 921 * ttMoveHistory / 127649 - (ss->ply > rootDepth) * 45;
-                int tripleMargin = 76 + 308 * PvNode - 250 * !ttCapture + 92 * ss->ttPv - corrValAdj
-                                 - (ss->ply * 2 > rootDepth * 3) * 52;
+                int corrValAdj   = std::abs(correctionValue) / xx3;
+                int doubleMargin = -4 + xx4 * PvNode - xx5 * !ttCapture - corrValAdj
+                                 - xx6 * ttMoveHistory / 127649 - (ss->ply > rootDepth) * xx7;
+                int tripleMargin = xx8 + xx9 * PvNode - xx10 * !ttCapture + xx11 * ss->ttPv
+                                 - corrValAdj - (ss->ply * 2 > rootDepth * 3) * xx12;
 
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
@@ -1894,11 +1928,12 @@ void update_all_stats(const Position& pos,
 }
 
 
+
 // Updates histories of the move pairs formed by moves
 // at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     static std::array<ConthistBonus, 6> conthist_bonuses = {
-      {{1, 1157}, {2, 648}, {3, 288}, {4, 576}, {5, 140}, {6, 441}}};
+      {{1, tt1}, {2, tt2}, {3, tt3}, {4, tt4}, {5, tt5}, {6, tt6}}};
 
     for (const auto [i, weight] : conthist_bonuses)
     {

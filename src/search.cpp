@@ -1180,8 +1180,8 @@ moves_loop:  // When in check, search starts here
         // These reduction adjustments have no proven non-linear scaling
 
 
-        if (ttData.bound == BOUND_UPPER)
-          r += 1000
+        if (ttData.bound & BOUND_UPPER)
+            r += 1000;
 
         r += 714;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 73;

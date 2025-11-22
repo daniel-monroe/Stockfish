@@ -878,7 +878,7 @@ Value Search::Worker::search(
         auto futility_margin = [&](Depth d) {
             Value futilityMult = 76 - 23 * !ss->ttHit;
 
-            return futilityMult * d                               //
+            return futilityMult * (d - 1)                         //
                  - 2474 * improving * futilityMult / 1024         //
                  - 331 * opponentWorsening * futilityMult / 1024  //
                  + std::abs(correctionValue) / 174665;

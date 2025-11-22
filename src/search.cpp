@@ -1179,6 +1179,10 @@ moves_loop:  // When in check, search starts here
                + (ttData.depth >= depth) * (934 + cutNode * 1011);
         // These reduction adjustments have no proven non-linear scaling
 
+
+        if (ttData.bound == BOUND_UPPER)
+          r += 1000
+
         r += 714;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 73;
         r -= std::abs(correctionValue) / 30370;

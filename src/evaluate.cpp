@@ -37,7 +37,7 @@
 
 namespace Stockfish {
 
-int rr1 = 252, rr2 = 457, rr3 = 18827, rr4 = 525, rr5 = 79412, rr6 = 7145, rr7 = 216;
+int rr1 = 270, rr2 = 476, rr3 = 18683, rr4 = 533, rr5 = 77236, rr6 = 7001, rr7 = 208;
 
 TUNE(rr1, rr2, rr3, rr4, rr5, rr6, rr7);
 

@@ -142,12 +142,8 @@ void update_all_stats(const Position& pos,
                       int             moveCount);
 
 bool isShuffling(Move move, Stack* const ss, const Position& pos) {
-    if (type_of(pos.moved_piece(move)) == PAWN || pos.capture_stage(move)
-        || pos.rule50_count() < 10)
-        return false;
-    if (pos.state()->pliesFromNull <= 6 || ss->ply < 20)
-        return false;
-    return move.from_sq() == (ss - 2)->currentMove.to_sq()
+    return pos.rule50_count() >= 20 && !pos.capture_stage(move)
+        && move.from_sq() == (ss - 2)->currentMove.to_sq()
         && (ss - 2)->currentMove.from_sq() == (ss - 4)->currentMove.to_sq();
 }
 

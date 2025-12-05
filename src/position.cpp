@@ -1141,34 +1141,6 @@ void Position::update_piece_threats(Piece               pc,
       (PseudoAttacks[KNIGHT][s] & knights) | (attacks_bb<PAWN>(s, WHITE) & blackPawns)
       | (attacks_bb<PAWN>(s, BLACK) & whitePawns) | (PseudoAttacks[KING][s] & kings);
 
-#ifdef USE_AVX512ICL
-    if (threatened)
-    {
-        if constexpr (PutPiece)
-        {
-            dts->threatenedSqs |= threatened;
-            dts->threateningSqs |= square_bb(s);
-        }
-
-        DirtyThreat dt_template{pc, NO_PIECE, s, Square(0), PutPiece};
-        write_multiple_dirties<DirtyThreat::ThreatenedSqOffset, DirtyThreat::ThreatenedPcOffset>(
-          *this, threatened, dt_template, dts);
-    }
-
-    Bitboard all_attackers = sliders | incoming_threats;
-    if (!all_attackers)
-        return;  // Square s is threatened iff there's at least one attacker
-
-    if constexpr (PutPiece)
-    {
-        dts->threatenedSqs |= square_bb(s);
-        dts->threateningSqs |= all_attackers;
-    }
-
-    DirtyThreat dt_template{NO_PIECE, pc, Square(0), s, PutPiece};
-    write_multiple_dirties<DirtyThreat::PcSqOffset, DirtyThreat::PcOffset>(*this, all_attackers,
-                                                                           dt_template, dts);
-#else
     while (threatened)
     {
         Square threatenedSq = pop_lsb(threatened);
@@ -1179,7 +1151,6 @@ void Position::update_piece_threats(Piece               pc,
 
         add_dirty_threat<PutPiece>(dts, pc, threatenedPc, s, threatenedSq);
     }
-#endif
 
     if constexpr (ComputeRay)
     {
@@ -1199,9 +1170,8 @@ void Position::update_piece_threats(Piece               pc,
                 add_dirty_threat<!PutPiece>(dts, slider, threatenedPc, sliderSq, threatenedSq);
             }
 
-#ifndef USE_AVX512ICL  // for ICL, direct threats were processed earlier (all_attackers)
             add_dirty_threat<PutPiece>(dts, slider, pc, sliderSq, s);
-#endif
+
         }
     }
     else
@@ -1209,7 +1179,6 @@ void Position::update_piece_threats(Piece               pc,
         incoming_threats |= sliders;
     }
 
-#ifndef USE_AVX512ICL
     while (incoming_threats)
     {
         Square srcSq = pop_lsb(incoming_threats);
@@ -1220,7 +1189,6 @@ void Position::update_piece_threats(Piece               pc,
 
         add_dirty_threat<PutPiece>(dts, srcPc, pc, srcSq, s);
     }
-#endif
 }
 
 // Helper used to do/undo a castling move. This is a bit

@@ -1043,6 +1043,11 @@ void Position::undo_move(Move m) {
 template<bool PutPiece>
 inline void add_dirty_threat(
   DirtyThreats* const dts, Piece pc, Piece threatened, Square s, Square threatenedSq) {
+
+    // ignore minor pieces on top and bottom ranks
+    if (type_of(threatened) <= BISHOP && (threatenedSq <= SQ_A8 || threatenedSq >= SQ_H1))
+        return;
+    
     if (PutPiece)
     {
         dts->threatenedSqs |= square_bb(threatenedSq);
@@ -1171,7 +1176,6 @@ void Position::update_piece_threats(Piece               pc,
             }
 
             add_dirty_threat<PutPiece>(dts, slider, pc, sliderSq, s);
-
         }
     }
     else

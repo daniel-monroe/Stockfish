@@ -1045,7 +1045,8 @@ inline void add_dirty_threat(
   DirtyThreats* const dts, Piece pc, Piece threatened, Square s, Square threatenedSq) {
 
     // ignore minor pieces on top and bottom ranks
-    if (type_of(threatened) <= BISHOP && (threatenedSq <= SQ_A8 || threatenedSq >= SQ_H1))
+    if (type_of(threatened) <= BISHOP && (threatenedSq <= SQ_A8 || threatenedSq >= SQ_H1)
+        && (rank_of(s) == rank_of(threatenedSq) || file_of(s) == file_of(threatenedSq)))
         return;
     
     if (PutPiece)

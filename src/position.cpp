@@ -698,7 +698,8 @@ void Position::do_move(Move                      m,
                        bool                      givesCheck,
                        DirtyPiece&               dp,
                        DirtyThreats&             dts,
-                       const TranspositionTable* tt = nullptr) {
+                       const TranspositionTable* tt = nullptr,
+                       const Search::Worker *worker = nullptr) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -879,6 +880,13 @@ void Position::do_move(Move                      m,
     // If en passant is impossible, then k will not change and we can prefetch earlier
     if (tt && !checkEP)
         prefetch(tt->first_entry(adjust_key50(k)));
+
+    if (worker) {
+        prefetch(&worker->pawnCorrectionHistory[pawn_correction_history_index(*this)][0]);
+        prefetch(&worker->minorPieceCorrectionHistory[minor_piece_index(*this)][0]);
+        prefetch(&worker->nonPawnCorrectionHistory[non_pawn_index<WHITE>(*this)][0][0]);
+        prefetch(&worker->nonPawnCorrectionHistory[non_pawn_index<BLACK>(*this)][0][0]);
+    }
 
     // Set capture piece
     st->capturedPiece = captured;

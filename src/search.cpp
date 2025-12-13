@@ -79,10 +79,11 @@ using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
-    const auto  pcv   = w.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
-    const auto  micv  = w.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
-    const auto  wnpcv = w.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
-    const auto  bnpcv = w.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
+    const auto& shared = w.sharedHistory;
+    const auto  pcv   = shared.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
+    const auto  micv  = shared.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
+    const auto  wnpcv = shared.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
+    const auto  bnpcv = shared.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
     const auto  cntcv =
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                     + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
@@ -105,12 +106,13 @@ void update_correction_history(const Position& pos,
     const Color us = pos.side_to_move();
 
     constexpr int nonPawnWeight = 178;
+    auto & shared = workerThread.sharedHistory;
 
-    workerThread.pawnCorrectionHistory[pawn_correction_history_index(pos)][us] << bonus;
-    workerThread.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 156 / 128;
-    workerThread.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us]
+    shared.pawnCorrectionHistory[pawn_correction_history_index(pos)][us] << bonus;
+    shared.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 156 / 128;
+    shared.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us]
       << bonus * nonPawnWeight / 128;
-    workerThread.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us]
+    shared.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us]
       << bonus * nonPawnWeight / 128;
 
     if (m.is_ok())
@@ -158,6 +160,7 @@ Search::Worker::Worker(SharedState&                    sharedState,
                        size_t                          threadId,
                        NumaReplicatedAccessToken       token) :
     // Unpack the SharedState struct into member variables
+    sharedHistory(sharedState.sharedHistories),
     threadIdx(threadId),
     numaAccessToken(token),
     manager(std::move(sm)),
@@ -577,9 +580,10 @@ void Search::Worker::clear() {
     mainHistory.fill(68);
     captureHistory.fill(-689);
     pawnHistory.fill(-1238);
-    pawnCorrectionHistory.fill(5);
-    minorPieceCorrectionHistory.fill(0);
-    nonPawnCorrectionHistory.fill(0);
+    // TODO only one thread should do this
+    sharedHistory.pawnCorrectionHistory.fill(5);
+    sharedHistory.minorPieceCorrectionHistory.fill(0);
+    sharedHistory.nonPawnCorrectionHistory.fill(0);
 
     ttMoveHistory = 0;
 

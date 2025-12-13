@@ -145,6 +145,8 @@ Engine::Engine(std::optional<std::string> path) :
           return std::nullopt;
       }));
 
+    sharedHists = make_unique_large_page<Search::SharedHistories>();
+
     load_networks();
     resize_threads();
 }
@@ -240,7 +242,7 @@ void Engine::set_numa_config_from_option(const std::string& o) {
 
 void Engine::resize_threads() {
     threads.wait_for_search_finished();
-    threads.set(numaContext.get_numa_config(), {options, threads, tt, networks}, updateContext);
+    threads.set(numaContext.get_numa_config(), {options, threads, tt, *sharedHists, networks}, updateContext);
 
     // Reallocate the hash with the new threadpool size
     set_tt_size(options["Hash"]);

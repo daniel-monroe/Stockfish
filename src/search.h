@@ -129,6 +129,7 @@ struct LimitsType {
     bool                     ponderMode;
 };
 
+struct SharedHistories;
 
 // The UCI stores the uci options, thread pool, and transposition table.
 // This struct is used to easily forward data to the Search::Worker class.
@@ -136,15 +137,18 @@ struct SharedState {
     SharedState(const OptionsMap&                                         optionsMap,
                 ThreadPool&                                               threadPool,
                 TranspositionTable&                                       transpositionTable,
+                SharedHistories& sharedHists,
                 const LazyNumaReplicatedSystemWide<Eval::NNUE::Networks>& nets) :
         options(optionsMap),
         threads(threadPool),
         tt(transpositionTable),
+        sharedHistories(sharedHists),
         networks(nets) {}
 
     const OptionsMap&                                         options;
     ThreadPool&                                               threads;
     TranspositionTable&                                       tt;
+    SharedHistories& sharedHistories;
     const LazyNumaReplicatedSystemWide<Eval::NNUE::Networks>& networks;
 };
 
@@ -258,6 +262,11 @@ class NullSearchManager: public ISearchManager {
     void check_time(Search::Worker&) override {}
 };
 
+struct SharedHistories {
+    CorrectionHistory<Pawn>         pawnCorrectionHistory;
+    CorrectionHistory<Minor>        minorPieceCorrectionHistory;
+    CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
+};
 
 // Search::Worker is the class that does the actual search.
 // It is instantiated once per thread, and it is responsible for keeping track
@@ -285,13 +294,10 @@ class Worker {
     CapturePieceToHistory captureHistory;
     ContinuationHistory   continuationHistory[2][2];
     PawnHistory           pawnHistory;
-
-    CorrectionHistory<Pawn>         pawnCorrectionHistory;
-    CorrectionHistory<Minor>        minorPieceCorrectionHistory;
-    CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
     CorrectionHistory<Continuation> continuationCorrectionHistory;
 
     TTMoveHistory ttMoveHistory;
+    SharedHistories& sharedHistory;
 
    private:
     void iterative_deepening();

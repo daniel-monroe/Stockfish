@@ -33,28 +33,30 @@
 
 namespace Stockfish {
 
+#define SPLIT_BY 4
+
 constexpr int PAWN_HISTORY_SIZE        = 8192;  // has to be a power of 2
-constexpr int UINT_16_HISTORY_SIZE     = std::numeric_limits<uint16_t>::max() + 1;
+constexpr int CORRHIST_SIZE     = SPLIT_BY * (std::numeric_limits<uint16_t>::max() + 1);
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 constexpr int LOW_PLY_HISTORY_SIZE     = 5;
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
               "PAWN_HISTORY_SIZE has to be a power of 2");
 
-static_assert((UINT_16_HISTORY_SIZE & (UINT_16_HISTORY_SIZE - 1)) == 0,
+static_assert((CORRHIST_SIZE & (CORRHIST_SIZE - 1)) == 0,
               "CORRECTION_HISTORY_SIZE has to be a power of 2");
 
 inline int pawn_history_index(const Position& pos) {
     return pos.pawn_key() & (PAWN_HISTORY_SIZE - 1);
 }
 
-inline uint16_t pawn_correction_history_index(const Position& pos) { return pos.pawn_key(); }
+inline size_t pawn_correction_history_index(const Position& pos) { return pos.pawn_key() % CORRHIST_SIZE; }
 
-inline uint16_t minor_piece_index(const Position& pos) { return pos.minor_piece_key(); }
+inline size_t minor_piece_index(const Position& pos) { return pos.minor_piece_key() % CORRHIST_SIZE; }
 
 template<Color c>
-inline uint16_t non_pawn_index(const Position& pos) {
-    return pos.non_pawn_key(c);
+inline size_t non_pawn_index(const Position& pos) {
+    return pos.non_pawn_key(c) % CORRHIST_SIZE;
 }
 
 // StatsEntry is the container of various numerical statistics. We use a class
@@ -98,11 +100,11 @@ using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
 // during the current search, and is used for reduction and move ordering decisions.
 // It uses 2 tables (one for each color) indexed by the move's from and to squares,
 // see https://www.chessprogramming.org/Butterfly_Boards
-using ButterflyHistory = Stats<std::int16_t, 7183, COLOR_NB, UINT_16_HISTORY_SIZE>;
+using ButterflyHistory = Stats<std::int16_t, 7183, COLOR_NB, CORRHIST_SIZE>;
 
 // LowPlyHistory is addressed by play and move's from and to squares, used
 // to improve move ordering near the root
-using LowPlyHistory = Stats<std::int16_t, 7183, LOW_PLY_HISTORY_SIZE, UINT_16_HISTORY_SIZE>;
+using LowPlyHistory = Stats<std::int16_t, 7183, LOW_PLY_HISTORY_SIZE, CORRHIST_SIZE>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
 using CapturePieceToHistory = Stats<std::int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
@@ -134,7 +136,7 @@ namespace Detail {
 
 template<CorrHistType>
 struct CorrHistTypedef {
-    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, UINT_16_HISTORY_SIZE, COLOR_NB>;
+    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_SIZE, COLOR_NB>;
 };
 
 template<>
@@ -150,7 +152,7 @@ struct CorrHistTypedef<Continuation> {
 template<>
 struct CorrHistTypedef<NonPawn> {
     using type =
-      Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, UINT_16_HISTORY_SIZE, COLOR_NB, COLOR_NB>;
+      Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_SIZE, COLOR_NB, COLOR_NB>;
 };
 
 }

@@ -580,12 +580,11 @@ void Search::Worker::clear() {
     mainHistory.fill(68);
     captureHistory.fill(-689);
     pawnHistory.fill(-1238);
-    // TODO only one thread should do this
     auto len = sharedHistory.pawnCorrectionHistory.size() / SPLIT_BY;
 
-    sharedHistory.pawnCorrectionHistory.fill_range(5, len * threadIdx, len);
-    sharedHistory.minorPieceCorrectionHistory.fill_range(0, len * threadIdx, len);
-    sharedHistory.nonPawnCorrectionHistory.fill_range(0, len * threadIdx, len);
+    sharedHistory.pawnCorrectionHistory.fill(5);
+    sharedHistory.minorPieceCorrectionHistory.fill(0);
+    sharedHistory.nonPawnCorrectionHistory.fill(0);
 
     ttMoveHistory = 0;
 

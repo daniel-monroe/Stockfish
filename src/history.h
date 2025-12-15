@@ -33,7 +33,7 @@
 
 namespace Stockfish {
 
-#define SPLIT_BY 64
+#define SPLIT_BY 8
 
 constexpr int PAWN_HISTORY_SIZE        = 8192;  // has to be a power of 2
 constexpr int UINT16_HISTORY_SIZE = std::numeric_limits<uint16_t>::max() + 1;

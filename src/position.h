@@ -69,7 +69,7 @@ struct StateInfo {
 // elements are not invalidated upon list resizing.
 using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 
-namespace Search { class Worker; }
+namespace Search { class SharedHistories; }
 
 // Position class stores information regarding the board representation as
 // pieces, side to move, hash keys, castling info, etc. Important methods are
@@ -142,7 +142,7 @@ class Position {
                  DirtyPiece&               dp,
                  DirtyThreats&             dts,
                  const TranspositionTable* tt,
-                 const Search::Worker *worker);
+                 const Search::SharedHistories *worker);
     void undo_move(Move m);
     void do_null_move(StateInfo& newSt, const TranspositionTable& tt);
     void undo_null_move();

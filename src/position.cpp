@@ -699,7 +699,7 @@ void Position::do_move(Move                      m,
                        DirtyPiece&               dp,
                        DirtyThreats&             dts,
                        const TranspositionTable* tt = nullptr,
-                       const Search::Worker *worker = nullptr) {
+                       const Search::SharedHistories *history = nullptr) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -881,11 +881,11 @@ void Position::do_move(Move                      m,
     if (tt && !checkEP)
         prefetch(tt->first_entry(adjust_key50(k)));
 
-    if (worker) {
-        prefetch(&worker->pawnCorrectionHistory[pawn_correction_history_index(*this)][0]);
-        prefetch(&worker->minorPieceCorrectionHistory[minor_piece_index(*this)][0]);
-        prefetch(&worker->nonPawnCorrectionHistory[non_pawn_index<WHITE>(*this)][0][0]);
-        prefetch(&worker->nonPawnCorrectionHistory[non_pawn_index<BLACK>(*this)][0][0]);
+    if (history) {
+        prefetch(&history->pawnCorrectionHistory[pawn_correction_history_index(*this)][0]);
+        prefetch(&history->minorPieceCorrectionHistory[minor_piece_index(*this)][0]);
+        prefetch(&history->nonPawnCorrectionHistory[non_pawn_index<WHITE>(*this)][0][0]);
+        prefetch(&history->nonPawnCorrectionHistory[non_pawn_index<BLACK>(*this)][0][0]);
     }
 
     // Set capture piece

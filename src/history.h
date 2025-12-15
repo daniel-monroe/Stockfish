@@ -33,10 +33,11 @@
 
 namespace Stockfish {
 
-#define SPLIT_BY 8
+#define SPLIT_BY 64
 
 constexpr int PAWN_HISTORY_SIZE        = 8192;  // has to be a power of 2
-constexpr int CORRHIST_SIZE     = SPLIT_BY * (std::numeric_limits<uint16_t>::max() + 1);
+constexpr int UINT16_HISTORY_SIZE = std::numeric_limits<uint16_t>::max() + 1;
+constexpr int CORRHIST_SIZE     = SPLIT_BY * UINT16_HISTORY_SIZE;
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 constexpr int LOW_PLY_HISTORY_SIZE     = 5;
 
@@ -100,11 +101,11 @@ using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
 // during the current search, and is used for reduction and move ordering decisions.
 // It uses 2 tables (one for each color) indexed by the move's from and to squares,
 // see https://www.chessprogramming.org/Butterfly_Boards
-using ButterflyHistory = Stats<std::int16_t, 7183, COLOR_NB, CORRHIST_SIZE>;
+using ButterflyHistory = Stats<std::int16_t, 7183, COLOR_NB, UINT16_HISTORY_SIZE>;
 
 // LowPlyHistory is addressed by play and move's from and to squares, used
 // to improve move ordering near the root
-using LowPlyHistory = Stats<std::int16_t, 7183, LOW_PLY_HISTORY_SIZE, CORRHIST_SIZE>;
+using LowPlyHistory = Stats<std::int16_t, 7183, LOW_PLY_HISTORY_SIZE, UINT16_HISTORY_SIZE>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
 using CapturePieceToHistory = Stats<std::int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;

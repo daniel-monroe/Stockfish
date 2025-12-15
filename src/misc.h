@@ -242,6 +242,19 @@ class MultiArray {
         }
     }
 
+    template<typename U>
+    void fill_range(const U& v, size_t start, size_t len) {
+        static_assert(Detail::is_strictly_assignable_v<T, U>,
+                      "Cannot assign fill value to entry type");
+        for (size_t i = start; i < start + len; ++i)
+        {
+            if constexpr (sizeof...(Sizes) == 0)
+                data_[i] = v;
+            else
+                data_[i].fill(v);
+        }
+    }
+
     constexpr void swap(MultiArray<T, Size, Sizes...>& other) noexcept { data_.swap(other.data_); }
 };
 

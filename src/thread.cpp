@@ -42,7 +42,7 @@ namespace Stockfish {
 Thread::Thread(Search::SharedState&                    sharedState,
                std::unique_ptr<Search::ISearchManager> sm,
                size_t                                  n,
-               size_t numaN,
+               size_t                                  numaN,
                OptionalThreadToNumaNodeBinder          binder) :
     idx(n),
     idxInNuma(numaN),
@@ -56,8 +56,8 @@ Thread::Thread(Search::SharedState&                    sharedState,
         // the Worker allocation. Ideally we would also allocate the SearchManager
         // here, but that's minor.
         this->numaAccessToken = binder();
-        this->worker = make_unique_large_page<Search::Worker>(sharedState, std::move(sm), n, idxInNuma,
-                                                              this->numaAccessToken);
+        this->worker = make_unique_large_page<Search::Worker>(sharedState, std::move(sm), n,
+                                                              idxInNuma, this->numaAccessToken);
     });
 
     wait_for_search_finished();
@@ -136,9 +136,7 @@ Search::SearchManager* ThreadPool::main_manager() { return main_thread()->worker
 uint64_t ThreadPool::nodes_searched() const { return accumulate(&Search::Worker::nodes); }
 uint64_t ThreadPool::tb_hits() const { return accumulate(&Search::Worker::tbHits); }
 
-static size_t next_power_of_two(uint64_t count) {
-    return count > 1 ? (2ULL << msb(count - 1)) : 1;
-}
+static size_t next_power_of_two(uint64_t count) { return count > 1 ? (2ULL << msb(count - 1)) : 1; }
 
 // Creates/destroys threads to match the requested number.
 // Created and launched threads will immediately go to sleep in idle_loop.
@@ -183,25 +181,33 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
                                 ? numaConfig.distribute_threads_among_numa_nodes(requested)
                                 : std::vector<NumaIndex>{};
 
-        if (boundThreadToNumaNode.empty()) {
+        if (boundThreadToNumaNode.empty())
+        {
             // Pretend all threads are part of numa node 0
             counts[0] = requested;
-        } else {
-            for (size_t i = 0; i < boundThreadToNumaNode.size(); ++i) {
+        }
+        else
+        {
+            for (size_t i = 0; i < boundThreadToNumaNode.size(); ++i)
+            {
                 counts[boundThreadToNumaNode[i]]++;
             }
         }
 
         sharedState.sharedHistories.clear();
-        for (auto pair : counts) {
+        for (auto pair : counts)
+        {
             NumaIndex numaIndex = pair.first;
-            uint64_t count = pair.second;
-            auto f = [&] () {
+            uint64_t  count     = pair.second;
+            auto      f         = [&]() {
                 sharedState.sharedHistories.try_emplace(numaIndex, next_power_of_two(count));
             };
-            if (doBindThreads) {
+            if (doBindThreads)
+            {
                 numaConfig.execute_on_numa_node(numaIndex, f);
-            } else {
+            }
+            else
+            {
                 f();
             }
         }
@@ -224,8 +230,8 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             auto binder = doBindThreads ? OptionalThreadToNumaNodeBinder(numaConfig, numaId)
                                         : OptionalThreadToNumaNodeBinder(numaId);
 
-            threads.emplace_back(
-              std::make_unique<Thread>(sharedState, std::move(manager), threadId, counts[numaId]++, binder));
+            threads.emplace_back(std::make_unique<Thread>(sharedState, std::move(manager), threadId,
+                                                          counts[numaId]++, binder));
         }
 
         clear();

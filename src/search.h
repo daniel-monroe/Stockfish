@@ -137,7 +137,7 @@ struct SharedState {
     SharedState(const OptionsMap&                                         optionsMap,
                 ThreadPool&                                               threadPool,
                 TranspositionTable&                                       transpositionTable,
-                std::map<NumaIndex, SharedHistories>& sharedHists,
+                std::map<NumaIndex, SharedHistories>&                     sharedHists,
                 const LazyNumaReplicatedSystemWide<Eval::NNUE::Networks>& nets) :
         options(optionsMap),
         threads(threadPool),
@@ -148,8 +148,8 @@ struct SharedState {
     const OptionsMap&                                         options;
     ThreadPool&                                               threads;
     TranspositionTable&                                       tt;
-    std::map<NumaIndex, SharedHistories>& sharedHistories;
-    std::map<NumaIndex, size_t> numaCounts;
+    std::map<NumaIndex, SharedHistories>&                     sharedHistories;
+    std::map<NumaIndex, size_t>                               numaCounts;
     const LazyNumaReplicatedSystemWide<Eval::NNUE::Networks>& networks;
 };
 
@@ -265,16 +265,15 @@ class NullSearchManager: public ISearchManager {
 
 struct SharedHistories {
     SharedHistories(size_t threadCount) :
-    pawnCorrectionHistory(threadCount), minorPieceCorrectionHistory(threadCount), nonPawnCorrectionHistory(threadCount) {}
+        pawnCorrectionHistory(threadCount),
+        minorPieceCorrectionHistory(threadCount),
+        nonPawnCorrectionHistory(threadCount) {}
 
-    size_t get_size() const {
-        return pawnCorrectionHistory.get_size();
-    }
+    size_t get_size() const { return pawnCorrectionHistory.get_size(); }
 
-    CorrectionHistory<Pawn>         pawnCorrectionHistory;
-    CorrectionHistory<Minor>        minorPieceCorrectionHistory;
-    CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
-
+    CorrectionHistory<Pawn>    pawnCorrectionHistory;
+    CorrectionHistory<Minor>   minorPieceCorrectionHistory;
+    CorrectionHistory<NonPawn> nonPawnCorrectionHistory;
 };
 
 // Search::Worker is the class that does the actual search.
@@ -282,7 +281,8 @@ struct SharedHistories {
 // of the search history, and storing data required for the search.
 class Worker {
    public:
-    Worker(SharedState&, std::unique_ptr<ISearchManager>, size_t, size_t, NumaReplicatedAccessToken);
+    Worker(
+      SharedState&, std::unique_ptr<ISearchManager>, size_t, size_t, NumaReplicatedAccessToken);
 
     // Called at instantiation to initialize reductions tables.
     // Reset histories, usually before a new game.
@@ -300,12 +300,12 @@ class Worker {
     ButterflyHistory mainHistory;
     LowPlyHistory    lowPlyHistory;
 
-    CapturePieceToHistory captureHistory;
-    ContinuationHistory   continuationHistory[2][2];
-    PawnHistory           pawnHistory;
+    CapturePieceToHistory           captureHistory;
+    ContinuationHistory             continuationHistory[2][2];
+    PawnHistory                     pawnHistory;
     CorrectionHistory<Continuation> continuationCorrectionHistory;
 
-    TTMoveHistory ttMoveHistory;
+    TTMoveHistory    ttMoveHistory;
     SharedHistories& sharedHistory;
 
    private:

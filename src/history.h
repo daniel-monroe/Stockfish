@@ -37,8 +37,8 @@ namespace Stockfish {
 
 
 constexpr int PAWN_HISTORY_SIZE        = 8192;  // has to be a power of 2
-constexpr int UINT16_HISTORY_SIZE = std::numeric_limits<uint16_t>::max() + 1;
-constexpr int CORRHIST_BASE_SIZE     = UINT16_HISTORY_SIZE;
+constexpr int UINT16_HISTORY_SIZE      = std::numeric_limits<uint16_t>::max() + 1;
+constexpr int CORRHIST_BASE_SIZE       = UINT16_HISTORY_SIZE;
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 constexpr int LOW_PLY_HISTORY_SIZE     = 5;
 
@@ -52,9 +52,13 @@ inline int pawn_history_index(const Position& pos) {
     return pos.pawn_key() & (PAWN_HISTORY_SIZE - 1);
 }
 
-inline size_t pawn_correction_history_index(const Position& pos) { return pos.pawn_key() & pos.get_corrhist_size_m1(); }
+inline size_t pawn_correction_history_index(const Position& pos) {
+    return pos.pawn_key() & pos.get_corrhist_size_m1();
+}
 
-inline size_t minor_piece_index(const Position& pos) { return pos.minor_piece_key() & pos.get_corrhist_size_m1(); }
+inline size_t minor_piece_index(const Position& pos) {
+    return pos.minor_piece_key() & pos.get_corrhist_size_m1();
+}
 
 template<Color c>
 inline size_t non_pawn_index(const Position& pos) {
@@ -98,16 +102,15 @@ enum StatsType {
 template<typename T, int D, std::size_t... Sizes>
 using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
 
-template <typename T, int SizeMultiplier>
+template<typename T, int SizeMultiplier>
 struct DynStats {
-    explicit DynStats(size_t initial_size) {
-        resize(initial_size);
-    }
-    template <typename U>
+    explicit DynStats(size_t initial_size) { resize(initial_size); }
+    template<typename U>
     void fill_range(U val, size_t start, size_t end) {
         assert(start < size);
         assert(end <= size);
-        while (start < end) {
+        while (start < end)
+        {
             data.get()[start].fill(val);
             start++;
         }
@@ -116,10 +119,8 @@ struct DynStats {
         size = new_size * SizeMultiplier;
         data = make_unique_large_page<T[]>(size);
     }
-    size_t get_size() const {
-        return size;
-    }
-    T& operator[](size_t index) {
+    size_t get_size() const { return size; }
+    T&     operator[](size_t index) {
         assert(index < size);
         return data.get()[index];
     }
@@ -127,8 +128,9 @@ struct DynStats {
         assert(index < size);
         return data.get()[index];
     }
-private:
-    size_t size;
+
+   private:
+    size_t            size;
     LargePagePtr<T[]> data;
 };
 
@@ -172,7 +174,8 @@ namespace Detail {
 
 template<CorrHistType>
 struct CorrHistTypedef {
-    using type = DynStats<Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB>, CORRHIST_BASE_SIZE>;
+    using type =
+      DynStats<Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB>, CORRHIST_BASE_SIZE>;
 };
 
 template<>
@@ -187,8 +190,8 @@ struct CorrHistTypedef<Continuation> {
 
 template<>
 struct CorrHistTypedef<NonPawn> {
-    using type =
-      DynStats<Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, COLOR_NB>, CORRHIST_BASE_SIZE>;
+    using type = DynStats<Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, COLOR_NB>,
+                          CORRHIST_BASE_SIZE>;
 };
 
 }

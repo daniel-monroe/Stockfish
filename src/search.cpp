@@ -77,13 +77,13 @@ using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 // optimized for require verifications at longer time controls
 
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
-    const Color us    = pos.side_to_move();
-    const auto  m     = (ss - 1)->currentMove;
+    const Color us     = pos.side_to_move();
+    const auto  m      = (ss - 1)->currentMove;
     const auto& shared = w.sharedHistory;
-    const auto  pcv   = shared.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
-    const auto  micv  = shared.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
-    const auto  wnpcv = shared.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
-    const auto  bnpcv = shared.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
+    const auto  pcv    = shared.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
+    const auto  micv   = shared.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
+    const auto  wnpcv  = shared.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
+    const auto  bnpcv  = shared.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
     const auto  cntcv =
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                     + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
@@ -106,7 +106,7 @@ void update_correction_history(const Position& pos,
     const Color us = pos.side_to_move();
 
     constexpr int nonPawnWeight = 178;
-    auto & shared = workerThread.sharedHistory;
+    auto&         shared        = workerThread.sharedHistory;
 
     shared.pawnCorrectionHistory[pawn_correction_history_index(pos)][us] << bonus;
     shared.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 156 / 128;
@@ -587,9 +587,9 @@ void Search::Worker::clear() {
 
     // Each thread is responsible for clearing their part of shared history
 
-    size_t len = sharedHistory.get_size() / numaTotal;
+    size_t len   = sharedHistory.get_size() / numaTotal;
     size_t start = numaThreadIdx * len;
-    size_t end = std::min(start + len, sharedHistory.get_size());
+    size_t end   = std::min(start + len, sharedHistory.get_size());
 
     sharedHistory.pawnCorrectionHistory.fill_range(5, start, end);
     sharedHistory.minorPieceCorrectionHistory.fill_range(0, start, end);

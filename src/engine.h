@@ -120,8 +120,8 @@ class Engine {
     TranspositionTable                                 tt;
     LazyNumaReplicatedSystemWide<Eval::NNUE::Networks> networks;
 
-    Search::SearchManager::UpdateContext  updateContext;
-    std::function<void(std::string_view)> onVerifyNetworks;
+    Search::SearchManager::UpdateContext         updateContext;
+    std::function<void(std::string_view)>        onVerifyNetworks;
     std::map<NumaIndex, Search::SharedHistories> sharedHists;
 };
 

@@ -328,7 +328,7 @@ inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
 inline uint32_t Position::get_corrhist_size_m1() const { return corrHistSizeM1; }
 
 inline void Position::set_corrhist_size(uint32_t val) {
-    assert((val & (val - 1)) == 0 && val != 0);
+    assert((val & (val - 1)) == 0 && val);
     corrHistSizeM1 = val - 1;
 }
 

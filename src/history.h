@@ -36,6 +36,7 @@ namespace Stockfish {
 constexpr int PAWN_HISTORY_SIZE        = 8192;  // has to be a power of 2
 constexpr int UINT_16_HISTORY_SIZE     = std::numeric_limits<uint16_t>::max() + 1;
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
+constexpr int CORRECTION_HISTORY_COUNT = 4;
 constexpr int LOW_PLY_HISTORY_SIZE     = 5;
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
@@ -93,6 +94,44 @@ enum StatsType {
 
 template<typename T, int D, std::size_t... Sizes>
 using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
+
+class CorrectionHistories {
+    int64_t weights[CORRECTION_HISTORY_COUNT][CORRECTION_HISTORY_LIMIT][COLOR_NB] = {};
+    int64_t values[CORRECTION_HISTORY_COUNT][CORRECTION_HISTORY_LIMIT][COLOR_NB]  = {};
+
+   public:
+    void reset() {
+        for (int i = 0; i < CORRECTION_HISTORY_COUNT; ++i)
+            for (int j = 0; j < CORRECTION_HISTORY_LIMIT; ++j)
+                for (int c = 0; c < COLOR_NB; ++c)
+                {
+                    weights[i][j][c] = 0;
+                    values[i][j][c]  = 0;
+                }
+    }
+
+
+    void add(int i1, int i2, int i3, int i4, Color c, int error, int weight) {
+        i1 = i1 & (CORRECTION_HISTORY_LIMIT - 1);
+        i2 = i2 & (CORRECTION_HISTORY_LIMIT - 1);
+        i3 = i3 & (CORRECTION_HISTORY_LIMIT - 1);
+        i4 = i4 & (CORRECTION_HISTORY_LIMIT - 1);
+        weights[0][i1][c] += weight;
+        values[0][i1][c] += error * weight;
+        weights[1][i2][c] += weight;
+        values[1][i2][c] += error * weight;
+        weights[2][i3][c] += weight;
+        values[2][i3][c] += error * weight;
+        weights[3][i4][c] += weight;
+        values[3][i4][c] += error * weight;
+    }
+
+    int get_error(int hist, int idx, Color c) const {
+        idx       = idx & (CORRECTION_HISTORY_LIMIT - 1);
+        int64_t w = weights[hist][idx][c] + 20;
+        return static_cast<int>(values[hist][idx][c] / w);
+    }
+};
 
 // ButterflyHistory records how often quiet moves have been successful or unsuccessful
 // during the current search, and is used for reduction and move ordering decisions.

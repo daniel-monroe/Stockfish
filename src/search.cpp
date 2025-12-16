@@ -79,14 +79,15 @@ using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
-    const auto  pcv   = w.pawnCorrectionHistory[pawn_correction_history_index(pos)][us];
-    const auto  micv  = w.minorPieceCorrectionHistory[minor_piece_index(pos)][us];
-    const auto  wnpcv = w.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us];
-    const auto  bnpcv = w.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us];
-    const auto  cntcv =
+    const auto  pcv   = w.correctionHistories.get_error(0, pawn_correction_history_index(pos), us);
+    const auto  micv  = w.correctionHistories.get_error(1, minor_piece_index(pos), us);
+    const auto  wnpcv = w.correctionHistories.get_error(2, non_pawn_index<WHITE>(pos), us);
+    const auto  bnpcv = w.correctionHistories.get_error(3, non_pawn_index<BLACK>(pos), us);
+
+    const auto cntcv =
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                     + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                 : 8;
+                : 8;
 
     return 10347 * pcv + 8821 * micv + 11168 * (wnpcv + bnpcv) + 7841 * cntcv;
 }
@@ -97,30 +98,6 @@ Value to_corrected_static_eval(const Value v, const int cv) {
     return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
-void update_correction_history(const Position& pos,
-                               Stack* const    ss,
-                               Search::Worker& workerThread,
-                               const int       bonus) {
-    const Move  m  = (ss - 1)->currentMove;
-    const Color us = pos.side_to_move();
-
-    constexpr int nonPawnWeight = 178;
-
-    workerThread.pawnCorrectionHistory[pawn_correction_history_index(pos)][us] << bonus;
-    workerThread.minorPieceCorrectionHistory[minor_piece_index(pos)][us] << bonus * 156 / 128;
-    workerThread.nonPawnCorrectionHistory[non_pawn_index<WHITE>(pos)][WHITE][us]
-      << bonus * nonPawnWeight / 128;
-    workerThread.nonPawnCorrectionHistory[non_pawn_index<BLACK>(pos)][BLACK][us]
-      << bonus * nonPawnWeight / 128;
-
-    if (m.is_ok())
-    {
-        const Square to = m.to_sq();
-        const Piece  pc = pos.piece_on(m.to_sq());
-        (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 127 / 128;
-        (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 59 / 128;
-    }
-}
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -580,6 +557,7 @@ void Search::Worker::clear() {
     pawnCorrectionHistory.fill(5);
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory.fill(0);
+    correctionHistories.reset();
 
     ttMoveHistory = 0;
 
@@ -1468,9 +1446,29 @@ moves_loop:  // When in check, search starts here
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
         && (bestValue > ss->staticEval) == bool(bestMove))
     {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / (bestMove ? 10 : 8),
+        auto       bonus = std::clamp(int(bestValue - ss->staticEval) * depth / (bestMove ? 10 : 8),
+                                      -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+        const Move m     = (ss - 1)->currentMove;
+
+
+        if (m.is_ok())
+        {
+            const Square to = m.to_sq();
+            const Piece  pc = pos.piece_on(m.to_sq());
+            (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 127 / 128;
+            (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 59 / 128;
+        }
+    }
+
+    if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
+        && (bestValue > unadjustedStaticEval) == bool(bestMove))
+    {
+        auto error = std::clamp(int(bestValue - unadjustedStaticEval),
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        update_correction_history(pos, ss, *this, bonus);
+
+        correctionHistories.add(pawn_correction_history_index(pos), minor_piece_index(pos),
+                                non_pawn_index<WHITE>(pos), non_pawn_index<BLACK>(pos), us, error,
+                                std::max(depth, 1));
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);

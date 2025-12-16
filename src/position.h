@@ -156,6 +156,8 @@ class Position {
     Key pawn_key() const;
     Key minor_piece_key() const;
     Key non_pawn_key(Color c) const;
+    uint32_t get_corrhist_size() const;
+    void set_corrhist_size(uint32_t val);
 
     // Other properties of the position
     Color side_to_move() const;
@@ -217,6 +219,7 @@ class Position {
     int          gamePly;
     Color        sideToMove;
     bool         chess960;
+    uint32_t     corrHistSize;
     DirtyPiece   scratch_dp;
     DirtyThreats scratch_dts;
 };
@@ -319,6 +322,15 @@ inline Key Position::material_key() const { return st->materialKey; }
 inline Key Position::minor_piece_key() const { return st->minorPieceKey; }
 
 inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
+
+inline uint32_t Position::get_corrhist_size() const {
+    return corrHistSize;
+}
+
+inline void Position::set_corrhist_size(uint32_t val) {
+    corrHistSize = val;
+}
+
 
 inline Value Position::non_pawn_material(Color c) const { return st->nonPawnMaterial[c]; }
 

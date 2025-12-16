@@ -317,6 +317,10 @@ inline uint64_t mul_hi64(uint64_t a, uint64_t b) {
 #endif
 }
 
+inline uint32_t mul_hi32(uint32_t a, uint32_t b) {
+    return uint64_t(a) * b >> 32;
+}
+
 
 template<typename T>
 inline void hash_combine(std::size_t& seed, const T& v) {

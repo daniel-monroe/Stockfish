@@ -28,36 +28,36 @@
 #include <limits>
 #include <type_traits>  // IWYU pragma: keep
 
+#include "memory.h"
 #include "misc.h"
 #include "position.h"
 
 namespace Stockfish {
 
-#define SPLIT_BY 64
 
 constexpr int PAWN_HISTORY_SIZE        = 8192;  // has to be a power of 2
 constexpr int UINT16_HISTORY_SIZE = std::numeric_limits<uint16_t>::max() + 1;
-constexpr int CORRHIST_SIZE     = SPLIT_BY * UINT16_HISTORY_SIZE;
+constexpr int CORRHIST_BASE_SIZE     = UINT16_HISTORY_SIZE;
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 constexpr int LOW_PLY_HISTORY_SIZE     = 5;
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
               "PAWN_HISTORY_SIZE has to be a power of 2");
 
-static_assert((CORRHIST_SIZE & (CORRHIST_SIZE - 1)) == 0,
-              "CORRECTION_HISTORY_SIZE has to be a power of 2");
+static_assert((CORRHIST_BASE_SIZE & (CORRHIST_BASE_SIZE - 1)) == 0,
+              "CORRHIST_BASE_SIZE has to be a power of 2");
 
 inline int pawn_history_index(const Position& pos) {
     return pos.pawn_key() & (PAWN_HISTORY_SIZE - 1);
 }
 
-inline size_t pawn_correction_history_index(const Position& pos) { return pos.pawn_key() % CORRHIST_SIZE; }
+inline size_t pawn_correction_history_index(const Position& pos) { return mul_hi32(pos.pawn_key(), pos.get_corrhist_size()); }
 
-inline size_t minor_piece_index(const Position& pos) { return pos.minor_piece_key() % CORRHIST_SIZE; }
+inline size_t minor_piece_index(const Position& pos) { return mul_hi32(pos.minor_piece_key(), pos.get_corrhist_size()); }
 
 template<Color c>
 inline size_t non_pawn_index(const Position& pos) {
-    return pos.non_pawn_key(c) % CORRHIST_SIZE;
+    return mul_hi32(pos.non_pawn_key(c), pos.get_corrhist_size());;
 }
 
 // StatsEntry is the container of various numerical statistics. We use a class
@@ -96,6 +96,31 @@ enum StatsType {
 
 template<typename T, int D, std::size_t... Sizes>
 using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
+
+template <typename T>
+struct DynStats {
+    DynStats(size_t initial_size) {
+        resize(initial_size);
+    }
+    void resize(size_t new_size) {
+        size = new_size;
+        data = make_unique_large_page<T[]>(size);
+    }
+    size_t get_size() const {
+        return size;
+    }
+    T& operator[](size_t index) {
+        assert(index < size);
+        return data.get()[index];
+    }
+    const T& operator[](size_t index) const {
+        assert(index < size);
+        return data.get()[index];
+    }
+private:
+    size_t size;
+    LargePagePtr<T[]> data;
+};
 
 // ButterflyHistory records how often quiet moves have been successful or unsuccessful
 // during the current search, and is used for reduction and move ordering decisions.
@@ -137,7 +162,7 @@ namespace Detail {
 
 template<CorrHistType>
 struct CorrHistTypedef {
-    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_SIZE, COLOR_NB>;
+    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_BASE_SIZE, COLOR_NB>;
 };
 
 template<>
@@ -153,7 +178,7 @@ struct CorrHistTypedef<Continuation> {
 template<>
 struct CorrHistTypedef<NonPawn> {
     using type =
-      Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_SIZE, COLOR_NB, COLOR_NB>;
+      Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_BASE_SIZE, COLOR_NB, COLOR_NB>;
 };
 
 }

@@ -122,7 +122,7 @@ class Engine {
 
     Search::SearchManager::UpdateContext  updateContext;
     std::function<void(std::string_view)> onVerifyNetworks;
-    LargePagePtr<Search::SharedHistories> sharedHists;
+    std::map<NumaIndex, Search::SharedHistories> sharedHists;
 };
 
 }  // namespace Stockfish

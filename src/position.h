@@ -69,7 +69,7 @@ struct StateInfo {
 // elements are not invalidated upon list resizing.
 using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
 
-namespace Search { class SharedHistories; }
+namespace Search { struct SharedHistories; }
 
 // Position class stores information regarding the board representation as
 // pieces, side to move, hash keys, castling info, etc. Important methods are
@@ -156,7 +156,7 @@ class Position {
     Key pawn_key() const;
     Key minor_piece_key() const;
     Key non_pawn_key(Color c) const;
-    uint32_t get_corrhist_size() const;
+    uint32_t get_corrhist_size_m1() const;
     void set_corrhist_size(uint32_t val);
 
     // Other properties of the position
@@ -219,7 +219,7 @@ class Position {
     int          gamePly;
     Color        sideToMove;
     bool         chess960;
-    uint32_t     corrHistSize;
+    uint32_t     corrHistSizeM1;
     DirtyPiece   scratch_dp;
     DirtyThreats scratch_dts;
 };
@@ -323,12 +323,13 @@ inline Key Position::minor_piece_key() const { return st->minorPieceKey; }
 
 inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
 
-inline uint32_t Position::get_corrhist_size() const {
-    return corrHistSize;
+inline uint32_t Position::get_corrhist_size_m1() const {
+    return corrHistSizeM1;
 }
 
 inline void Position::set_corrhist_size(uint32_t val) {
-    corrHistSize = val;
+    assert((val & (val - 1)) == 0 && val != 0);
+    corrHistSizeM1 = val - 1;
 }
 
 

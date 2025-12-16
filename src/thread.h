@@ -76,6 +76,7 @@ class Thread {
     Thread(Search::SharedState&,
            std::unique_ptr<Search::ISearchManager>,
            size_t,
+           size_t,
            OptionalThreadToNumaNodeBinder);
     virtual ~Thread();
 
@@ -100,7 +101,7 @@ class Thread {
    private:
     std::mutex                mutex;
     std::condition_variable   cv;
-    size_t                    idx, nthreads;
+    size_t                    idx, idxInNuma, nthreads;
     bool                      exit = false, searching = true;  // Set before starting std::thread
     NativeThread              stdThread;
     NumaReplicatedAccessToken numaAccessToken;

@@ -28,6 +28,7 @@
 #include <limits>
 #include <type_traits>  // IWYU pragma: keep
 
+#include <iostream>
 #include "memory.h"
 #include "misc.h"
 #include "position.h"
@@ -51,13 +52,13 @@ inline int pawn_history_index(const Position& pos) {
     return pos.pawn_key() & (PAWN_HISTORY_SIZE - 1);
 }
 
-inline size_t pawn_correction_history_index(const Position& pos) { return mul_hi32(pos.pawn_key(), pos.get_corrhist_size()); }
+inline size_t pawn_correction_history_index(const Position& pos) { return pos.pawn_key() & pos.get_corrhist_size_m1(); }
 
-inline size_t minor_piece_index(const Position& pos) { return mul_hi32(pos.minor_piece_key(), pos.get_corrhist_size()); }
+inline size_t minor_piece_index(const Position& pos) { return pos.minor_piece_key() & pos.get_corrhist_size_m1(); }
 
 template<Color c>
 inline size_t non_pawn_index(const Position& pos) {
-    return mul_hi32(pos.non_pawn_key(c), pos.get_corrhist_size());;
+    return pos.non_pawn_key(c) & pos.get_corrhist_size_m1();
 }
 
 // StatsEntry is the container of various numerical statistics. We use a class
@@ -97,13 +98,22 @@ enum StatsType {
 template<typename T, int D, std::size_t... Sizes>
 using Stats = MultiArray<StatsEntry<T, D>, Sizes...>;
 
-template <typename T>
+template <typename T, int SizeMultiplier>
 struct DynStats {
-    DynStats(size_t initial_size) {
+    explicit DynStats(size_t initial_size) {
         resize(initial_size);
     }
+    template <typename U>
+    void fill_range(U val, size_t start, size_t end) {
+        assert(start < size);
+        assert(end <= size);
+        while (start < end) {
+            data.get()[start].fill(val);
+            start++;
+        }
+    }
     void resize(size_t new_size) {
-        size = new_size;
+        size = new_size * SizeMultiplier;
         data = make_unique_large_page<T[]>(size);
     }
     size_t get_size() const {
@@ -162,7 +172,7 @@ namespace Detail {
 
 template<CorrHistType>
 struct CorrHistTypedef {
-    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_BASE_SIZE, COLOR_NB>;
+    using type = DynStats<Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB>, CORRHIST_BASE_SIZE>;
 };
 
 template<>
@@ -178,7 +188,7 @@ struct CorrHistTypedef<Continuation> {
 template<>
 struct CorrHistTypedef<NonPawn> {
     using type =
-      Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRHIST_BASE_SIZE, COLOR_NB, COLOR_NB>;
+      DynStats<Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, COLOR_NB>, CORRHIST_BASE_SIZE>;
 };
 
 }

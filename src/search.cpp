@@ -158,10 +158,13 @@ bool isShuffling(Move move, Stack* const ss, const Position& pos) {
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
                        size_t                          threadId,
+                       size_t                          numaThreadId,
                        NumaReplicatedAccessToken       token) :
     // Unpack the SharedState struct into member variables
-    sharedHistory(sharedState.sharedHistories),
+    sharedHistory(sharedState.sharedHistories.at(token.get_numa_index())),
     threadIdx(threadId),
+    numaThreadIdx(numaThreadId),
+    numaTotal(sharedState.numaCounts.at(token.get_numa_index())),
     numaAccessToken(token),
     manager(std::move(sm)),
     options(sharedState.options),
@@ -181,6 +184,7 @@ void Search::Worker::ensure_network_replicated() {
 void Search::Worker::start_searching() {
 
     accumulatorStack.reset();
+    rootPos.set_corrhist_size(sharedHistory.get_size());
 
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
@@ -580,11 +584,16 @@ void Search::Worker::clear() {
     mainHistory.fill(68);
     captureHistory.fill(-689);
     pawnHistory.fill(-1238);
-    auto len = sharedHistory.pawnCorrectionHistory.size() / SPLIT_BY;
 
-    sharedHistory.pawnCorrectionHistory.fill_range(5, len * threadIdx, len);
-    sharedHistory.minorPieceCorrectionHistory.fill_range(0, len * threadIdx, len);
-    sharedHistory.nonPawnCorrectionHistory.fill_range(0, len * threadIdx, len);
+    // Each thread is responsible for clearing their part of shared history
+
+    size_t len = sharedHistory.get_size() / numaTotal;
+    size_t start = numaThreadIdx * len;
+    size_t end = std::min(start + len, sharedHistory.get_size());
+
+    sharedHistory.pawnCorrectionHistory.fill_range(5, start, end);
+    sharedHistory.minorPieceCorrectionHistory.fill_range(0, start, end);
+    sharedHistory.nonPawnCorrectionHistory.fill_range(0, start, end);
 
     ttMoveHistory = 0;
 

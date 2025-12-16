@@ -137,7 +137,7 @@ struct SharedState {
     SharedState(const OptionsMap&                                         optionsMap,
                 ThreadPool&                                               threadPool,
                 TranspositionTable&                                       transpositionTable,
-                SharedHistories& sharedHists,
+                std::map<NumaIndex, SharedHistories>& sharedHists,
                 const LazyNumaReplicatedSystemWide<Eval::NNUE::Networks>& nets) :
         options(optionsMap),
         threads(threadPool),
@@ -148,7 +148,8 @@ struct SharedState {
     const OptionsMap&                                         options;
     ThreadPool&                                               threads;
     TranspositionTable&                                       tt;
-    SharedHistories& sharedHistories;
+    std::map<NumaIndex, SharedHistories>& sharedHistories;
+    std::map<NumaIndex, size_t> numaCounts;
     const LazyNumaReplicatedSystemWide<Eval::NNUE::Networks>& networks;
 };
 
@@ -263,9 +264,17 @@ class NullSearchManager: public ISearchManager {
 };
 
 struct SharedHistories {
+    SharedHistories(size_t threadCount) :
+    pawnCorrectionHistory(threadCount), minorPieceCorrectionHistory(threadCount), nonPawnCorrectionHistory(threadCount) {}
+
+    size_t get_size() const {
+        return pawnCorrectionHistory.get_size();
+    }
+
     CorrectionHistory<Pawn>         pawnCorrectionHistory;
     CorrectionHistory<Minor>        minorPieceCorrectionHistory;
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
+
 };
 
 // Search::Worker is the class that does the actual search.
@@ -273,7 +282,7 @@ struct SharedHistories {
 // of the search history, and storing data required for the search.
 class Worker {
    public:
-    Worker(SharedState&, std::unique_ptr<ISearchManager>, size_t, NumaReplicatedAccessToken);
+    Worker(SharedState&, std::unique_ptr<ISearchManager>, size_t, size_t, NumaReplicatedAccessToken);
 
     // Called at instantiation to initialize reductions tables.
     // Reset histories, usually before a new game.
@@ -344,7 +353,7 @@ class Worker {
     Depth     rootDepth, completedDepth;
     Value     rootDelta;
 
-    size_t                    threadIdx;
+    size_t                    threadIdx, numaThreadIdx, numaTotal;
     NumaReplicatedAccessToken numaAccessToken;
 
     // Reductions lookup table initialized at startup

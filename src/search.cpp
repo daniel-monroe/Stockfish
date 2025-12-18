@@ -743,10 +743,7 @@ Value Search::Worker::search(
         // ttValue can be used as a better position evaluation
         if (is_valid(ttData.value)
             && (ttData.bound & (ttData.value > eval ? BOUND_LOWER : BOUND_UPPER)))
-        {
-            eval = ttData.value;
-            ss->staticEval += (eval - ss->staticEval) / 4;
-        }
+          ss->staticEval = eval = ttData.value;
     }
     else
     {

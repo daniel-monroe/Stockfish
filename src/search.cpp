@@ -745,7 +745,7 @@ Value Search::Worker::search(
             && (ttData.bound & (ttData.value > eval ? BOUND_LOWER : BOUND_UPPER)))
         {
             eval = ttData.value;
-            ss->staticEval += (eval - ss->staticEval) / 8;
+            ss->staticEval += (eval - ss->staticEval) / 4;
         }
     }
     else

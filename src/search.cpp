@@ -718,11 +718,14 @@ Value Search::Worker::search(
 
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
+    Value      origStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
     if (ss->inCheck)
     {
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
+        origStaticEval        = ss->staticEval;
+
         improving             = false;
     }
     else if (excludedMove)
@@ -735,16 +738,21 @@ Value Search::Worker::search(
             unadjustedStaticEval = evaluate(pos);
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        origStaticEval        = ss->staticEval;
 
         // ttValue can be used as a better position evaluation
         if (is_valid(ttData.value)
             && (ttData.bound & (ttData.value > eval ? BOUND_LOWER : BOUND_UPPER)))
+        {
             eval = ttData.value;
+            ss->staticEval += (eval - ss->staticEval) / 8;
+        }
     }
     else
     {
         unadjustedStaticEval = evaluate(pos);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        origStaticEval        = ss->staticEval;
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
@@ -1480,9 +1488,9 @@ moves_loop:  // When in check, search starts here
     // Adjust correction history if the best move is not a capture
     // and the error direction matches whether we are above/below bounds.
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
-        && (bestValue > ss->staticEval) == bool(bestMove))
+        && (bestValue > origStaticEval) == bool(bestMove) && !excludedMove)
     {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / (bestMove ? 10 : 8),
+        auto bonus = std::clamp(int(bestValue - origStaticEval) * depth / (bestMove ? 10 : 8),
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         update_correction_history(pos, ss, *this, bonus);
     }

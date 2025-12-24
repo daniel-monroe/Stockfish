@@ -1466,11 +1466,11 @@ moves_loop:  // When in check, search starts here
 
     // Adjust correction history if the best move is not a capture
     // and the error direction matches whether we are above/below bounds.
-    if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
-        && (bestValue > ss->staticEval) == bool(bestMove))
+    int vd = bestValue - ss->staticEval - 20;
+    if (!ss->inCheck && !(bestMove && pos.capture(bestMove)) && (vd > 0) == bool(bestMove))
     {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / (bestMove ? 10 : 8),
-                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+        auto bonus = std::clamp(vd * depth / (bestMove ? 10 : 8), -CORRECTION_HISTORY_LIMIT / 4,
+                                CORRECTION_HISTORY_LIMIT / 4);
         update_correction_history(pos, ss, *this, bonus);
     }
 

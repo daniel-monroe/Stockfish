@@ -43,22 +43,24 @@ struct Cluster;
 // A copy of the data already in an entry (possibly collided). Probes and reads are racy and non-atomic,
 // possibly resulting in inconsistent data.
 struct TTData {
-    Move  move;
-    Value value, eval;
-    Depth depth;
-    Bound bound;
-    bool  is_pv;
+    Move     move;
+    Value    value, eval;
+    Depth    depth;
+    Bound    bound;
+    bool     is_pv;
+    uint16_t extra;
 
     TTData() = delete;
 
     // clang-format off
-    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv) :
+    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv, uint16_t ex) :
         move(m),
         value(v),
         eval(ev),
         depth(d),
         bound(b),
-        is_pv(pv) {};
+        is_pv(pv),
+        extra(ex) {};
     // clang-format on
 };
 
@@ -67,7 +69,15 @@ struct TTData {
 // for chess reasons, we may decide the new data is less important than the old.
 struct TTWriter {
    public:
-    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void write(Key      k,
+               Value    v,
+               bool     pv,
+               Bound    b,
+               Depth    d,
+               Move     m,
+               Value    ev,
+               uint8_t  generation8,
+               uint16_t extra = 0);
     void penalize(int penalty);  // decrement stored depth by the penalty
 
    private:

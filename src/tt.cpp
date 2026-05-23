@@ -32,7 +32,7 @@
 namespace Stockfish {
 
 
-// TTEntry struct is the 10 bytes transposition table entry, defined as:
+// TTEntry struct is the 12 bytes transposition table entry, defined as:
 //
 // key        16 bit
 // depth       8 bit
@@ -42,6 +42,7 @@ namespace Stockfish {
 // move       16 bit
 // value      16 bit
 // evaluation 16 bit
+// extra      16 bit
 //
 // These fields are in the same order as accessed by TT::probe(), since memory is fastest sequentially.
 // Equally, the store order in save() matches this order.
@@ -66,11 +67,20 @@ struct TTEntry {
                       Value(eval16),
                       Depth(DEPTH_NONE + depth8),
                       Bound((genBound8 & BOUND_MASK) >> BOUND_SHIFT),
-                      bool(genBound8 & PV_MASK)};
+                      bool(genBound8 & PV_MASK),
+                      extra16};
     }
 
     bool is_occupied() const { return bool(depth8); };
-    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t curr_generation);
+    void save(Key      k,
+              Value    v,
+              bool     pv,
+              Bound    b,
+              Depth    d,
+              Move     m,
+              Value    ev,
+              uint16_t extra,
+              uint8_t  curr_generation);
     uint8_t relative_age(const uint8_t curr_generation) const;
 
    private:
@@ -83,12 +93,20 @@ struct TTEntry {
     Move     move16;
     int16_t  value16;
     int16_t  eval16;
+    uint16_t extra16;
 };
 
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is non-atomic and can be racy.
-void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t curr_generation) {
+void TTEntry::save(Key      k,
+                   Value    v,
+                   bool     pv,
+                   Bound    b,
+                   Depth    d,
+                   Move     m,
+                   Value    ev,
+                   uint16_t extra,
+                   uint8_t  curr_generation) {
 
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
@@ -107,6 +125,7 @@ void TTEntry::save(
         genBound8 = uint8_t(curr_generation | b << BOUND_SHIFT | uint8_t(pv) << PV_SHIFT);
         value16   = int16_t(v);
         eval16    = int16_t(ev);
+        extra16   = extra;
     }
     // Secondary aging. Important for elementary mate finding.
     // (*Scaler) Secondary aging on entries relevant to singular extensions
@@ -133,9 +152,16 @@ uint8_t TTEntry::relative_age(const uint8_t curr_generation) const {
 TTWriter::TTWriter(TTEntry* tte) :
     entry(tte) {}
 
-void TTWriter::write(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t curr_generation) {
-    entry->save(k, v, pv, b, d, m, ev, curr_generation);
+void TTWriter::write(Key      k,
+                     Value    v,
+                     bool     pv,
+                     Bound    b,
+                     Depth    d,
+                     Move     m,
+                     Value    ev,
+                     uint8_t  curr_generation,
+                     uint16_t extra) {
+    entry->save(k, v, pv, b, d, m, ev, extra, curr_generation);
 }
 
 void TTWriter::penalize(int penalty) {
@@ -148,11 +174,11 @@ void TTWriter::penalize(int penalty) {
 // of TTEntry. Each non-empty TTEntry contains information on exactly one position. The size of a Cluster should
 // divide the size of a cache line for best performance, as the cacheline is prefetched when possible.
 
-static constexpr int ClusterSize = 3;
+static constexpr int ClusterSize = 2;
 
 struct Cluster {
     TTEntry entry[ClusterSize];
-    char    padding[2];  // Pad to 32 bytes
+    char    padding[8];  // Pad to 32 bytes (2 entries * 12 bytes + 8 padding)
 };
 
 static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");
@@ -247,7 +273,8 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
             > tte[i].depth8 - 8 * tte[i].relative_age(generation8))
             replace = &tte[i];
 
-    return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false},
+    return {false,
+            TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false, 0},
             TTWriter(replace)};
 }
 

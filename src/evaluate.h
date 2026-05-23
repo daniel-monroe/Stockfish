@@ -19,6 +19,7 @@
 #ifndef EVALUATE_H_INCLUDED
 #define EVALUATE_H_INCLUDED
 
+#include <cstdint>
 #include <string>
 
 #include "types.h"
@@ -47,7 +48,8 @@ Value evaluate(const NNUE::Network&           network,
                const Position&                pos,
                Eval::NNUE::AccumulatorStack&  accumulators,
                Eval::NNUE::AccumulatorCaches& caches,
-               int                            optimism);
+               int                            optimism,
+               std::uint8_t*                  finalAcOut = nullptr);
 }  // namespace Eval
 
 }  // namespace Stockfish

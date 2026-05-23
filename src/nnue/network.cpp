@@ -150,7 +150,8 @@ bool Network::save(const std::optional<std::string>& filename) const {
 
 NetworkOutput Network::evaluate(const Position&    pos,
                                 AccumulatorStack&  accumulatorStack,
-                                AccumulatorCaches& cache) const {
+                                AccumulatorCaches& cache,
+                                FinalAcType*       finalAcOut) const {
 
     constexpr uint64_t alignment = CacheLineSize;
 
@@ -163,7 +164,7 @@ NetworkOutput Network::evaluate(const Position&    pos,
     const int  bucket     = (pos.count<ALL_PIECES>() - 1) / 4;
     const auto psqt       = featureTransformer.transform(pos, accumulatorStack, cache,
                                                          transformedFeatures, bucket, nnzInfo);
-    const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
+    const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo, finalAcOut);
     return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale)};
 }
 

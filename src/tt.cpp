@@ -112,6 +112,10 @@ void TTEntry::save(Key      k,
     if (m || uint16_t(k) != key16)
         move16 = m;
 
+    // Preserve the old extra16 if the caller did not supply one (mirrors move16).
+    if (extra || uint16_t(k) != key16)
+        extra16 = extra;
+
     // Overwrite less valuable entries (cheapest checks first)
     if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_NONE + 2 * pv > depth8 - 4
         || relative_age(curr_generation))
@@ -125,7 +129,6 @@ void TTEntry::save(Key      k,
         genBound8 = uint8_t(curr_generation | b << BOUND_SHIFT | uint8_t(pv) << PV_SHIFT);
         value16   = int16_t(v);
         eval16    = int16_t(ev);
-        extra16   = extra;
     }
     // Secondary aging. Important for elementary mate finding.
     // (*Scaler) Secondary aging on entries relevant to singular extensions

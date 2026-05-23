@@ -46,11 +46,24 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+// Tunable adjustment of the futility multiplier based on the final ClippedReLU
+// (ac_1) outputs of the NNUE. dot = sum_i weight[i] * ac1[i] with ac1 in [0,127];
+// adjustment = dot / FutilityNnueDivisor. Only the weights are tunable.
+namespace {
+constexpr int FutilityNnueSize    = Eval::NNUE::Network::FinalAcSize;
+constexpr int FutilityNnueDivisor = 64;
+// Default weights: alternating +/- so the dot product captures real position-to-position
+// variance (a uniform-sign vector would mostly reflect overall activation magnitude).
+int futilityNnueWeight[FutilityNnueSize] = {};
+}
+TUNE(SetRange(-127, 127), futilityNnueWeight);
 
 static constexpr std::array<int, 16> lmrDivisor = {3307, 2930, 2874, 2818, 3215, 3225, 3224, 2782,
                                                    2858, 2919, 3088, 3275, 3180, 2868, 3006, 3599};
@@ -766,6 +779,18 @@ Value Search::Worker::search(
     // Step 5. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
+    // Futility-margin adjustment based on the final NNUE ClippedReLU outputs.
+    // Computed when evaluate() is called here, otherwise loaded from the TT entry
+    // so we still have it on subsequent visits to this position.
+    uint8_t finalAc[FutilityNnueSize];
+    auto    computeFutilityAdj = [&] {
+        int dot = 0;
+        for (int i = 0; i < FutilityNnueSize; ++i)
+            dot += int(finalAc[i]) * futilityNnueWeight[i];
+        return int16_t(dot / FutilityNnueDivisor);
+    };
+    int16_t futilityAdj = ss->ttHit ? int16_t(ttData.extra) : 0;
+
     // Skip early pruning when in check
     if (ss->inCheck)
         ss->staticEval = eval = (ss - 2)->staticEval;
@@ -776,7 +801,10 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate(pos);
+        {
+            unadjustedStaticEval = evaluate(pos, finalAc);
+            futilityAdj          = computeFutilityAdj();
+        }
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -787,12 +815,13 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(pos);
+        unadjustedStaticEval = evaluate(pos, finalAc);
+        futilityAdj          = computeFutilityAdj();
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
-                       unadjustedStaticEval, tt.generation());
+                       unadjustedStaticEval, tt.generation(), uint16_t(futilityAdj));
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -913,6 +942,8 @@ Value Search::Worker::search(
         }
     }
 
+    
+
     if (ss->inCheck)
         goto moves_loop;
 
@@ -943,7 +974,13 @@ Value Search::Worker::search(
 
         Value futilityMargin = futilityMult * depth
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
-                             + std::abs(correctionValue) / 182069;
+                             + std::abs(correctionValue) / 182069
+                             + futilityAdj;
+
+        dbg_stdev_of(futilityAdj, 0);
+        dbg_extremes_of(futilityAdj, 0);
+        dbg_stdev_of(futilityMargin, 1);
+        dbg_extremes_of(futilityMargin, 1);
 
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
@@ -1808,9 +1845,9 @@ TimePoint Search::Worker::elapsed() const {
 
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Search::Worker::evaluate(const Position& pos) {
+Value Search::Worker::evaluate(const Position& pos, std::uint8_t* finalAcOut) {
     return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
-                          optimism[pos.side_to_move()]);
+                          optimism[pos.side_to_move()], finalAcOut);
 }
 
 namespace {

@@ -64,9 +64,14 @@ class Network {
 
     std::size_t get_content_hash() const;
 
+    // Size and element type of the final ClippedReLU (ac_1) output exposed to callers.
+    static constexpr int FinalAcSize = NetworkArchitecture::FinalAcSize;
+    using FinalAcType                = typename NetworkArchitecture::FinalAcType;
+
     NetworkOutput evaluate(const Position&    pos,
                            AccumulatorStack&  accumulatorStack,
-                           AccumulatorCaches& cache) const;
+                           AccumulatorCaches& cache,
+                           FinalAcType*       finalAcOut = nullptr) const;
 
 
     void verify(std::string evalfilePath, const std::function<void(std::string_view)>&) const;

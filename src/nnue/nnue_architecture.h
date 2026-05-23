@@ -95,8 +95,13 @@ struct NetworkArchitecture {
             && fc_2.write_parameters(stream);
     }
 
+    // Size of the final ClippedReLU layer (ac_1) output, exposed for search.
+    static constexpr int FinalAcSize = FC_1_OUTPUTS;
+    using FinalAcType                = typename decltype(ac_1)::OutputType;
+
     std::int32_t propagate(const TransformedFeatureType* transformedFeatures,
-                           const NNZInfo<L1>&            nnzInfo) const {
+                           const NNZInfo<L1>&            nnzInfo,
+                           FinalAcType*                  finalAcOut = nullptr) const {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
@@ -119,6 +124,9 @@ struct NetworkArchitecture {
         fc_1.propagate(buffer.ac_sqr_0_out, buffer.fc_1_out);
         ac_1.propagate(buffer.fc_1_out, buffer.ac_1_out);
         fc_2.propagate(buffer.ac_1_out, buffer.fc_2_out);
+
+        if (finalAcOut)
+            std::memcpy(finalAcOut, buffer.ac_1_out, FinalAcSize * sizeof(FinalAcType));
 
         // buffer.fc_0_out[FC_0_OUTPUTS] is such that 1.0 is equal to 127*(1<<WeightScaleBits) in
         // quantized form, but we want 1.0 to be equal to 600*OutputScale

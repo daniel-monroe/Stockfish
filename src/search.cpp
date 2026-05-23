@@ -977,11 +977,6 @@ Value Search::Worker::search(
                              + std::abs(correctionValue) / 182069
                              + futilityAdj;
 
-        dbg_stdev_of(futilityAdj, 0);
-        dbg_extremes_of(futilityAdj, 0);
-        dbg_stdev_of(futilityMargin, 1);
-        dbg_extremes_of(futilityMargin, 1);
-
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

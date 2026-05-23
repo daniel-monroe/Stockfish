@@ -59,9 +59,13 @@ namespace Stockfish {
 namespace {
 constexpr int FutilityNnueSize    = Eval::NNUE::Network::FinalAcSize;
 constexpr int FutilityNnueDivisor = 64;
-// Default weights: alternating +/- so the dot product captures real position-to-position
-// variance (a uniform-sign vector would mostly reflect overall activation magnitude).
-int futilityNnueWeight[FutilityNnueSize] = {};
+// Defaults from SPSA test 6a110780818cacc1db0ac0ff (values rounded to int).
+int futilityNnueWeight[FutilityNnueSize] = {
+    12, -1,   1,  -7,  1,   1,  11,   3,
+   -13, -8, -12, -19, 11,  -7,   6,  -1,
+    -2, 11,   1,   9,  9, -17,  -7,   6,
+     1,  4,  -5,   8,  1,   2,   6,  -6,
+};
 }
 TUNE(SetRange(-127, 127), futilityNnueWeight);
 

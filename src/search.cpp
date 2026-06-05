@@ -101,7 +101,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
 
 // Read strength of each NNUE hidden-state correction history group. Kept in the
 // same ballpark as the position-keyed correction histories in correction_value.
-constexpr int NnueHiddenCorrWeight = 8192;
+constexpr int NnueHiddenCorrWeight = 4096;
 
 // Correction contributed by the NNUE hidden-state activation bitmaps. Each of
 // the NNUE_HIDDEN_CORR_GROUPS groups looks up its own correction entry, keyed by

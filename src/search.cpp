@@ -773,10 +773,10 @@ Value Search::Worker::search(
         unadjustedStaticEval = eval = ss->staticEval;
     else if (ss->ttHit)
     {
-        // Never assume anything about values stored in TT
-        unadjustedStaticEval = ttData.eval;
-        if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate(pos);
+        // Always invoke the NNUE so it is evaluated at every node, but keep using
+        // the TT-cached static eval when available so search (and bench) is unchanged.
+        const Value nnueEval = evaluate(pos);
+        unadjustedStaticEval = is_valid(ttData.eval) ? ttData.eval : nnueEval;
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 

@@ -99,6 +99,23 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     return 13345 * pcv + 9280 * micv + 11840 * (wnpcv + bnpcv) + cntcv;
 }
 
+// Read strength of each NNUE hidden-state correction history group. Kept in the
+// same ballpark as the position-keyed correction histories in correction_value.
+constexpr int NnueHiddenCorrWeight = 8192;
+
+// Correction contributed by the NNUE hidden-state activation bitmaps. Each of
+// the NNUE_HIDDEN_CORR_GROUPS groups looks up its own correction entry, keyed by
+// its own 16-bit bitmap and the side to move.
+int nnue_correction_value(const Worker&                                             w,
+                          const std::array<std::uint16_t, NNUE_HIDDEN_CORR_GROUPS>& bitmaps,
+                          const Color                                               us) {
+    const auto& shared = w.sharedHistory;
+    int         v      = 0;
+    for (int g = 0; g < NNUE_HIDDEN_CORR_GROUPS; ++g)
+        v += NnueHiddenCorrWeight * shared.nnue_correction_entry(bitmaps[g])[us][g];
+    return v;
+}
+
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(const Value v, const int cv) {
@@ -127,6 +144,12 @@ void update_correction_history(const Position& pos,
         (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 136 / 128;
         (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 68 / 128;
     }
+
+    // Update the NNUE hidden-state correction histories, but only when the NNUE
+    // was actually evaluated at this node (so the bitmaps describe this position).
+    if (ss->nnueHiddenValid)
+        for (int g = 0; g < NNUE_HIDDEN_CORR_GROUPS; ++g)
+            shared.nnue_correction_entry(ss->nnueHidden[g])[us][g] << bonus;
 }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -638,6 +661,7 @@ void Search::Worker::clear() {
     // Each thread is responsible for clearing their part of shared history
     sharedHistory.correctionHistory.clear_range(-6, numaThreadIdx, numaTotal);
     sharedHistory.pawnHistory.clear_range(-1262, numaThreadIdx, numaTotal);
+    sharedHistory.nnueCorrectionHistory.clear_range(0, numaThreadIdx, numaTotal);
 
     ttMoveHistory = 0;
 
@@ -750,7 +774,7 @@ Value Search::Worker::search(
     ss->statScore       = 0;
     (ss + 2)->cutoffCnt = 0;
 
-    const auto correctionValue = correction_value(*this, pos, ss);
+    auto correctionValue = correction_value(*this, pos, ss);
 
     // Step 4. Transposition table lookup
     excludedMove                   = ss->excludedMove;
@@ -765,6 +789,7 @@ Value Search::Worker::search(
 
     // Step 5. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
+    ss->nnueHiddenValid        = false;
 
     // Skip early pruning when in check
     if (ss->inCheck)
@@ -773,11 +798,14 @@ Value Search::Worker::search(
         unadjustedStaticEval = eval = ss->staticEval;
     else if (ss->ttHit)
     {
-        // Always invoke the NNUE so it is evaluated at every node, but keep using
-        // the TT-cached static eval when available so search (and bench) is unchanged.
-        const Value nnueEval = evaluate(pos);
-        unadjustedStaticEval = is_valid(ttData.eval) ? ttData.eval : nnueEval;
+        // Always invoke the NNUE so its hidden-state bitmaps are available at
+        // every node; keep the TT-cached static eval as the base when valid.
+        const Value nnueEval = evaluate(pos, ss->nnueHidden.data());
+        ss->nnueHiddenValid  = true;
+        correctionValue += nnue_correction_value(*this, ss->nnueHidden, pos.side_to_move());
 
+        // Never assume anything about values stored in TT
+        unadjustedStaticEval = is_valid(ttData.eval) ? ttData.eval : nnueEval;
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // ttValue can be used as a better position evaluation
@@ -787,7 +815,9 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(pos);
+        unadjustedStaticEval = evaluate(pos, ss->nnueHidden.data());
+        ss->nnueHiddenValid  = true;
+        correctionValue += nnue_correction_value(*this, ss->nnueHidden, pos.side_to_move());
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -1623,13 +1653,15 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
     {
-        const auto correctionValue = correction_value(*this, pos, ss);
+        auto                                              correctionValue = correction_value(*this, pos, ss);
+        std::array<std::uint16_t, NNUE_HIDDEN_CORR_GROUPS> nnueHidden;
 
         if (ss->ttHit)
         {
-            // Always invoke the NNUE so it is evaluated at every qsearch node, but
-            // keep using the TT-cached static eval when available so search is unchanged.
-            const Value nnueEval = evaluate(pos);
+            // Always invoke the NNUE so its hidden-state bitmaps are available at every
+            // qsearch node; keep the TT-cached static eval as the base when valid.
+            const Value nnueEval = evaluate(pos, nnueHidden.data());
+            correctionValue += nnue_correction_value(*this, nnueHidden, pos.side_to_move());
             unadjustedStaticEval = is_valid(ttData.eval) ? ttData.eval : nnueEval;
 
             ss->staticEval = bestValue =
@@ -1642,7 +1674,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            unadjustedStaticEval = evaluate(pos);
+            unadjustedStaticEval = evaluate(pos, nnueHidden.data());
+            correctionValue += nnue_correction_value(*this, nnueHidden, pos.side_to_move());
             ss->staticEval       = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
         }
@@ -1807,9 +1840,9 @@ TimePoint Search::Worker::elapsed() const {
 
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Search::Worker::evaluate(const Position& pos) {
+Value Search::Worker::evaluate(const Position& pos, std::uint16_t* nnueHidden) {
     return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
-                          optimism[pos.side_to_move()]);
+                          optimism[pos.side_to_move()], nnueHidden);
 }
 
 namespace {

@@ -42,11 +42,12 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
                      Eval::NNUE::AccumulatorCaches& caches,
-                     int                            optimism) {
+                     int                            optimism,
+                     std::uint16_t*                 nnueHidden) {
 
     assert(!pos.checkers());
 
-    auto [psqt, positional] = network.evaluate(pos, accumulators, caches);
+    auto [psqt, positional] = network.evaluate(pos, accumulators, caches, nnueHidden);
 
     Value nnue = (125 * psqt + 131 * positional) / 128;
 

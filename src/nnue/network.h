@@ -66,7 +66,8 @@ class Network {
 
     NetworkOutput evaluate(const Position&    pos,
                            AccumulatorStack&  accumulatorStack,
-                           AccumulatorCaches& cache) const;
+                           AccumulatorCaches& cache,
+                           std::uint16_t*     hiddenBitmaps = nullptr) const;
 
 
     void verify(std::string evalfilePath, const std::function<void(std::string_view)>&) const;

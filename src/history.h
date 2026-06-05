@@ -41,6 +41,10 @@ constexpr int CORRHIST_BASE_SIZE       = UINT_16_HISTORY_SIZE;
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 constexpr int LOW_PLY_HISTORY_SIZE     = 5;
 
+// Number of NNUE hidden-state correction history groups. Each group is keyed by
+// a 16-bit bitmap built from the sign of one half of an NNUE ReLU hidden layer.
+constexpr int NNUE_HIDDEN_CORR_GROUPS = 4;
+
 static_assert((PAWN_HISTORY_BASE_SIZE & (PAWN_HISTORY_BASE_SIZE - 1)) == 0,
               "PAWN_HISTORY_BASE_SIZE has to be a power of 2");
 
@@ -198,6 +202,19 @@ using UnifiedCorrectionHistory =
   DynStats<MultiArray<CorrectionBundle<std::int16_t, CORRECTION_HISTORY_LIMIT>, COLOR_NB>,
            CORRHIST_BASE_SIZE>;
 
+// Correction history indexed by NNUE hidden-state activation bitmaps. Each
+// position yields NNUE_HIDDEN_CORR_GROUPS independent 16-bit bitmaps (one bit
+// per neuron, set when that neuron's ReLU output is positive); each group keys
+// its own correction term, addressed by [bitmap][color][group]. Unlike the
+// position-keyed histories the index space is intrinsically 16-bit, so the
+// table is a fixed CORRHIST_BASE_SIZE rows (SizeMultiplier 1) shared across the
+// NUMA node's threads.
+using NNUEHiddenCorrectionHistory =
+  DynStats<MultiArray<StatsEntry<std::int16_t, CORRECTION_HISTORY_LIMIT, true>,
+                      COLOR_NB,
+                      NNUE_HIDDEN_CORR_GROUPS>,
+           1>;
+
 template<CorrHistType T>
 using CorrectionHistory = typename Detail::CorrHistTypedef<T>::type;
 
@@ -210,10 +227,12 @@ using TTMoveHistory = StatsEntry<std::int16_t, 8192>;
 struct SharedHistories {
     SharedHistories(size_t threadCount) :
         correctionHistory(threadCount),
-        pawnHistory(threadCount) {
+        pawnHistory(threadCount),
+        nnueCorrectionHistory(CORRHIST_BASE_SIZE) {
         assert((threadCount & (threadCount - 1)) == 0 && threadCount != 0);
         sizeMinus1         = correctionHistory.get_size() - 1;
         pawnHistSizeMinus1 = pawnHistory.get_size() - 1;
+        nnueSizeMinus1     = nnueCorrectionHistory.get_size() - 1;
     }
 
     size_t get_size() const { return sizeMinus1 + 1; }
@@ -248,12 +267,22 @@ struct SharedHistories {
         return correctionHistory[pos.non_pawn_key(c) & sizeMinus1];
     }
 
-    UnifiedCorrectionHistory correctionHistory;
-    PawnHistory              pawnHistory;
+    // Returns the [color][group] row of NNUE hidden-state correction entries for
+    // a given 16-bit activation bitmap (one bitmap per group).
+    auto& nnue_correction_entry(std::uint16_t bitmap) {
+        return nnueCorrectionHistory[bitmap & nnueSizeMinus1];
+    }
+    const auto& nnue_correction_entry(std::uint16_t bitmap) const {
+        return nnueCorrectionHistory[bitmap & nnueSizeMinus1];
+    }
+
+    UnifiedCorrectionHistory    correctionHistory;
+    PawnHistory                 pawnHistory;
+    NNUEHiddenCorrectionHistory nnueCorrectionHistory;
 
 
    private:
-    size_t sizeMinus1, pawnHistSizeMinus1;
+    size_t sizeMinus1, pawnHistSizeMinus1, nnueSizeMinus1;
 };
 
 }  // namespace Stockfish

@@ -118,6 +118,11 @@ struct Stack {
     bool                        followPV;
     int                         cutoffCnt;
     int                         reduction;
+    // NNUE hidden-state activation bitmaps for this node, valid only when the
+    // NNUE was actually evaluated here (nnueHiddenValid). Used to read and
+    // update the NNUE hidden-state correction histories.
+    std::array<std::uint16_t, NNUE_HIDDEN_CORR_GROUPS> nnueHidden;
+    bool                                               nnueHiddenValid;
 };
 
 
@@ -369,7 +374,7 @@ class Worker {
     TimePoint elapsed() const;
     TimePoint elapsed_time() const;
 
-    Value evaluate(const Position&);
+    Value evaluate(const Position&, std::uint16_t* nnueHidden = nullptr);
 
     LimitsType limits;
 

@@ -97,8 +97,16 @@ struct NetworkArchitecture {
             && fc_2.write_parameters(stream);
     }
 
+    // When hiddenBitmaps is non-null it is filled with NNUE_HIDDEN_CORR_GROUPS
+    // 16-bit sign bitmaps of the two ReLU hidden layers feeding the value head:
+    //   [0],[1] : the two halves of ac_0 (the 32 ReLU outputs of the large
+    //             first layer)
+    //   [2],[3] : the two halves of ac_1 (the 32 ReLU neurons just before the
+    //             final value calculation)
+    // Bit i of a group is set when the corresponding neuron's output is > 0.
     std::int32_t propagate(const TransformedFeatureType* transformedFeatures,
-                           const NNZInfo<L1>&            nnzInfo) const {
+                           const NNZInfo<L1>&            nnzInfo,
+                           std::uint16_t*               hiddenBitmaps = nullptr) const {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
@@ -121,6 +129,24 @@ struct NetworkArchitecture {
         fc_1.propagate(buffer.ac_sqr_0_out, buffer.fc_1_out);
         ac_1.propagate(buffer.fc_1_out, buffer.ac_1_out);
         fc_2.propagate(buffer.ac_1_out, buffer.fc_2_out);
+
+        if (hiddenBitmaps != nullptr)
+        {
+            static_assert(FC_0_OUTPUTS + 1 >= 32 && FC_1_OUTPUTS >= 32,
+                          "NNUE hidden-state bitmaps assume at least 32 neurons per layer");
+            std::uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+            for (int i = 0; i < 16; ++i)
+            {
+                b0 |= std::uint16_t(buffer.ac_0_out[i] > 0) << i;
+                b1 |= std::uint16_t(buffer.ac_0_out[16 + i] > 0) << i;
+                b2 |= std::uint16_t(buffer.ac_1_out[i] > 0) << i;
+                b3 |= std::uint16_t(buffer.ac_1_out[16 + i] > 0) << i;
+            }
+            hiddenBitmaps[0] = b0;
+            hiddenBitmaps[1] = b1;
+            hiddenBitmaps[2] = b2;
+            hiddenBitmaps[3] = b3;
+        }
 
         // max value for fwdOut is (L1 + L3) * HiddenMaxVal * WeightMaxVal
         // for int8 activations and weights this is (L1 + L3) * 16129 making

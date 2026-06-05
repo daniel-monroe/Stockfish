@@ -1627,11 +1627,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
         if (ss->ttHit)
         {
-            // Never assume anything about values stored in TT
-            unadjustedStaticEval = ttData.eval;
-
-            if (!is_valid(unadjustedStaticEval))
-                unadjustedStaticEval = evaluate(pos);
+            // Always invoke the NNUE so it is evaluated at every qsearch node, but
+            // keep using the TT-cached static eval when available so search is unchanged.
+            const Value nnueEval = evaluate(pos);
+            unadjustedStaticEval = is_valid(ttData.eval) ? ttData.eval : nnueEval;
 
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);

@@ -1208,8 +1208,13 @@ moves_loop:  // When in check, search starts here
             Value singularBeta  = ttData.value - (60 + 70 * (ss->ttPv && !PvNode)) * depth / 59;
             Depth singularDepth = newDepth / 2;
 
-            ss->excludedMove = move;
+            // The singular search re-enters with the SAME ss, so its Step 5 resets
+            // ss->uncertainty. Save/restore this node's value so it stays intact for
+            // this node's later TT store (and any post-loop use).
+            ss->excludedMove             = move;
+            const Value savedUncertainty = ss->uncertainty;
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
+            ss->uncertainty  = savedUncertainty;
             ss->excludedMove = Move::none();
 
             if (value < singularBeta)

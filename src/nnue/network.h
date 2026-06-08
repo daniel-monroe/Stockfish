@@ -71,10 +71,11 @@ class Network {
     void load(const std::string& rootDirectory, std::string evalfilePath);
     bool save(const std::optional<std::string>& filename) const;
 
-    // Load only the layer-stack (FC) weights of a second, byte-identical-FT net
-    // (e.g. nn-overestimate.nnue) into overestimateNetwork[]. The FT read from
-    // the file is asserted equal to the already-loaded main FT, then discarded.
-    // On any mismatch/failure the overestimate head is left disabled.
+    // Load the single-linear uncertainty head from a standalone dual-head .nnue
+    // file (one that carries the "OVRHEAD1" trailer). The main net payload is
+    // read into temporaries solely to reach the trailer; only the trailer's
+    // per-bucket linear head is kept. On any mismatch/failure the head is left
+    // as-is (a no-op preserves whatever was loaded from the main EvalFile).
     void load_overestimate(const std::string& rootDirectory, std::string evalfilePath);
 
     std::size_t get_content_hash() const;
@@ -83,16 +84,20 @@ class Network {
                            AccumulatorStack&  accumulatorStack,
                            AccumulatorCaches& cache) const;
 
-    // Like evaluate(), but builds the accumulator once and runs the FC stack
-    // twice: with the main FC weights and with the overestimate FC weights.
-    // If the overestimate head is not loaded, overPositional == mainPositional.
+    // Like evaluate(), but builds the accumulator once, runs the single main FC
+    // stack once, and additionally evaluates the cheap per-bucket single-linear
+    // uncertainty head on the SAME feature-transformer output. The head produces
+    // a scalar delta in the same integer units as the main head's "skip" term;
+    // overPositional == mainPositional + delta. If the head is zero (no trailer),
+    // delta == 0 and overPositional == mainPositional exactly.
     DualNetworkOutput evaluate_dual(const Position&    pos,
                                     AccumulatorStack&  accumulatorStack,
                                     AccumulatorCaches& cache) const;
 
-    // True only when a distinct overestimate net has been loaded via
-    // load_overestimate(). When false the overestimate head is a copy of the main
-    // head (uncertainty == 0). The head itself is always initialized (from main).
+    // True only when a real (nonzero) uncertainty head has been loaded, i.e. the
+    // single file carried an "OVRHEAD1" trailer (or a head was loaded via
+    // load_overestimate). When false the head is all-zeros so the delta — and
+    // hence the uncertainty — is exactly 0.
     bool has_overestimate() const { return overestimateIsReal; }
 
 
@@ -116,24 +121,36 @@ class Network {
     bool read_parameters(std::istream&, std::string&);
     bool write_parameters(std::ostream&, const std::string&) const;
 
+    // Helper: read the optional "OVRHEAD1" uncertainty-head trailer that may
+    // follow the main net payload. Returns false only on a corrupt/short trailer
+    // (a clean EOF with no magic is fine and leaves the head zeroed).
+    bool read_uncertainty_trailer(std::istream& stream);
+
+    // Read just the per-bucket single-linear head body (int32 bias + L1 int8
+    // weights per bucket) into uncBias[]/uncWeights[]. Sets overestimateIsReal.
+    bool read_uncertainty_head(std::istream& stream);
+
     // Input feature converter
     FeatureTransformer featureTransformer;
 
     // Evaluation function (main value head)
     NetworkArchitecture network[LayerStacks];
 
-    // Second FC head (overestimate / uncertainty). Shares featureTransformer.
-    // Only populated by load_overestimate(); guarded by overestimateLoaded.
-    NetworkArchitecture overestimateNetwork[LayerStacks];
+    // Uncertainty / "overestimate" head: ONE linear layer per layer-stack bucket
+    // mapping the feature-transformer output (the same L1=1024 uint8 vector the
+    // main fc_0 consumes) to a single scalar delta. Quantized with the SAME
+    // weight scale as the main fc_0 (ls_l1), so the delta lives in the same
+    // integer units as the main head's skip term and can be added straight onto
+    // the pre-scaling main output. Zeroed when no trailer is present -> delta 0.
+    alignas(CacheLineSize) std::int8_t uncWeights[LayerStacks][L1];
+    alignas(CacheLineSize) std::int32_t uncBias[LayerStacks];
 
     EvalFile evalFile;
 
-    bool initialized        = false;
-    // overestimateLoaded: the overestimate FC head is initialized (always true after
-    //   a main net load; it is a copy of the main head until a real net overwrites it).
-    // overestimateIsReal: a distinct nn-overestimate.nnue has been loaded, so the head
-    //   genuinely differs from main and uncertainty can be nonzero.
-    bool overestimateLoaded = false;
+    bool initialized = false;
+    // overestimateIsReal: a real (nonzero) uncertainty head is loaded, so the
+    //   delta — and hence uncertainty — can be nonzero. When false the head is
+    //   all-zeros and the delta is exactly 0 (overestimate == main).
     bool overestimateIsReal = false;
 
     // Hash value of evaluation function structure

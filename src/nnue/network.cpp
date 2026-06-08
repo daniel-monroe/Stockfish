@@ -38,6 +38,7 @@
 #include "nnue_common.h"
 #include "nnue_misc.h"
 #include "nnz_helper.h"
+#include "simd.h"
 
 // Macro to embed the default efficiently updatable neural network (NNUE) file
 // data in the engine binary (using incbin.h, by Dale Weiler).
@@ -85,6 +86,92 @@ bool write_parameters(std::ostream& stream, const T& reference) {
 }
 
 }  // namespace Detail
+
+namespace {
+
+// Dot product of the uint8 feature-transformer output with the int8 per-bucket
+// uncertainty-head weights, plus the int32 bias. This is the same math as the
+// main fc_0's affine (input is uint8 unsigned, weights int8 signed), with a
+// single output.
+//
+// Crucially it EXPLOITS THE SAME SPARSITY the main head uses, on EXACTLY the
+// build configs where the main fc_0 is sparse. The feature-transformer output
+// is mostly zero, and the sparse fc_0 (AffineTransformSparseInput) only visits
+// the nonzero 4-byte chunks recorded in nnzInfo. We mirror that here so the head
+// touches only the nonzero chunks (~the same memory the main head reads) rather
+// than all L1 features. A dense pass over all 1024 features measurably slows the
+// per-node eval (~5% in this micro-build); the sparse pass keeps it negligible.
+// Zero/absent inputs contribute nothing, so the result equals a dense dot.
+//
+// Only AVX512 keeps the sparse (nnz-index) path, because there the metadata is
+// chunk indices we can walk cheaply for a single output. For the SIMD-dpbusd
+// ISAs we just do a dense branchless dot (zeros contribute nothing, so it equals
+// the sparse result and avoids per-chunk bookkeeping). The scalar fallback is
+// used only when no SIMD is available.
+#if defined(USE_AVX512)
+inline std::int32_t uncertainty_dot(const std::uint8_t* input,
+                                    const std::int8_t*  weights,
+                                    std::int32_t        bias,
+                                    const NNZInfo<L1>&  nnzInfo) {
+    // AVX512 records nonzero 4-byte chunk indices directly.
+    std::int32_t sum   = bias;
+    const auto*  start = nnzInfo.nnz;
+    const auto*  end   = nnzInfo.nnz + nnzInfo.count;
+    for (; start < end; ++start)
+    {
+        const std::size_t c = *start;  // chunk index (4 features)
+        for (std::size_t t = 0; t < 4; ++t)
+            sum += std::int32_t(input[c * 4 + t]) * std::int32_t(weights[c * 4 + t]);
+    }
+    return sum;
+}
+#elif defined(USE_AVX2)
+inline std::int32_t uncertainty_dot(const std::uint8_t* input,
+                                    const std::int8_t*  weights,
+                                    std::int32_t        bias,
+                                    const NNZInfo<L1>&) {
+    // Dense AVX2 dpbusd over all L1 features. Zero inputs contribute nothing, so
+    // this equals the sparse result; doing it branchlessly with 32 dpbusd ops is
+    // faster than chasing the bitset for a single output. input is uint8
+    // (unsigned), weights int8 (signed) — exactly what dpbusd wants.
+    constexpr std::size_t NumChunk = L1 / sizeof(__m256i);  // 1024 / 32 = 32
+    __m256i               acc      = _mm256_setzero_si256();
+    const auto            in       = reinterpret_cast<const __m256i*>(input);
+    const auto            w        = reinterpret_cast<const __m256i*>(weights);
+    for (std::size_t j = 0; j < NumChunk; ++j)
+        SIMD::m256_add_dpbusd_epi32(acc, _mm256_load_si256(&in[j]), _mm256_load_si256(&w[j]));
+    return SIMD::m256_hadd(acc, bias);
+}
+#elif defined(USE_SSSE3)
+inline std::int32_t uncertainty_dot(const std::uint8_t* input,
+                                    const std::int8_t*  weights,
+                                    std::int32_t        bias,
+                                    const NNZInfo<L1>&) {
+    constexpr std::size_t NumChunk = L1 / sizeof(__m128i);  // 1024 / 16 = 64
+    __m128i               acc      = _mm_setzero_si128();
+    const auto            in       = reinterpret_cast<const __m128i*>(input);
+    const auto            w        = reinterpret_cast<const __m128i*>(weights);
+    for (std::size_t j = 0; j < NumChunk; ++j)
+        SIMD::m128_add_dpbusd_epi32(acc, _mm_load_si128(&in[j]), _mm_load_si128(&w[j]));
+    return SIMD::m128_hadd(acc, bias);
+}
+#else
+inline std::int32_t uncertainty_dot(const std::uint8_t* input,
+                                    const std::int8_t*  weights,
+                                    std::int32_t        bias,
+                                    const NNZInfo<L1>&) {
+    // Dense fallback: used exactly when the main fc_0 is also dense (no sparse
+    // metadata available), so this is the apples-to-apples path for such builds.
+    std::int32_t sum = bias;
+    for (std::size_t i = 0; i < L1; ++i)
+        sum += std::int32_t(input[i]) * std::int32_t(weights[i]);
+    return sum;
+}
+#endif
+
+#undef UNC_SEQ_OPT
+
+}  // namespace
 
 void Network::load(const std::string& rootDirectory, std::string evalfilePath) {
 #if defined(DEFAULT_NNUE_DIRECTORY)
@@ -176,13 +263,22 @@ DualNetworkOutput Network::evaluate_dual(const Position&    pos,
     const auto psqt   = featureTransformer.transform(pos, accumulatorStack, cache,
                                                       transformedFeatures, bucket, nnzInfo);
 
-    // Run the FC stack once with the main weights; the accumulator/FT is shared.
-    const auto mainPositional = network[bucket].propagate(transformedFeatures, nnzInfo);
+    // Run the single main FC stack; the accumulator/FT is shared. We also get
+    // back the raw pre-scaling value (fwdOut) so the uncertainty delta can be
+    // added in the same integer units and re-scaled jointly.
+    std::int32_t mainFwd     = 0;
+    const auto   mainPositional = network[bucket].propagate(transformedFeatures, nnzInfo, mainFwd);
 
-    // Run again with the overestimate FC weights if loaded, else mirror main.
+    // Uncertainty head: ONE linear layer on the SAME feature-transformer output
+    // (uint8 L1 activations) that the main fc_0 consumes, quantized with the same
+    // ls_l1 weight scale. The result is in the same units as the main head's skip
+    // term, so we add it to fwdOut and run it through the identical final scaling.
+    // Zero weights -> delta 0 -> overPositional == mainPositional exactly.
+    const std::int32_t deltaInt =
+      uncertainty_dot(transformedFeatures, uncWeights[bucket], uncBias[bucket], nnzInfo);
+
     const auto overPositional =
-      overestimateLoaded ? overestimateNetwork[bucket].propagate(transformedFeatures, nnzInfo)
-                         : mainPositional;
+      NetworkArchitecture::scale_fwd_out(std::int64_t(mainFwd) + std::int64_t(deltaInt));
 
     return {static_cast<Value>(psqt / OutputScale),
             static_cast<Value>(mainPositional / OutputScale),
@@ -270,15 +366,12 @@ void Network::load_user_net(const std::string& dir, const std::string& evalfileP
 
 
 void Network::load_overestimate(const std::string& rootDirectory, std::string evalfilePath) {
-    // Note: overestimateNetwork[] has already been initialized in read_parameters()
-    // — either from the single-file dual-head trailer (a real head, overestimateIsReal
-    // == true) or as a copy of the main head (uncertainty == 0). An empty override
-    // path must PRESERVE that state. Only when a separate override file is given do
-    // we attempt to (re)load; on any failure we keep the existing head.
+    // The uncertainty head now lives INSIDE the main .nnue file (the "OVRHEAD1"
+    // trailer read in read_parameters), so this separate override is optional and
+    // largely vestigial. An empty path PRESERVES whatever head the main EvalFile
+    // already provided (zeroed for a plain net, real for a dual-head net).
     if (evalfilePath.empty())
         return;
-
-    overestimateIsReal = false;
 
     // Try the candidate directories in the same way load() does.
 #if defined(DEFAULT_NNUE_DIRECTORY)
@@ -301,7 +394,9 @@ void Network::load_overestimate(const std::string& rootDirectory, std::string ev
         return;
     }
 
-    // Header: same Version and same arch hash as the main net (identical arch).
+    // The override file is a full dual-head .nnue: header + FT + main stacks +
+    // "OVRHEAD1" trailer. Read the main payload into temporaries (validated by
+    // hash, but otherwise discarded) just to position the stream at the trailer.
     std::uint32_t hashValue;
     std::string   description;
     if (!read_header(stream, &hashValue, &description) || hashValue != Network::hash)
@@ -310,52 +405,51 @@ void Network::load_overestimate(const std::string& rootDirectory, std::string ev
         return;
     }
 
-    // Read the FT into a temporary and assert it equals the main FT. The doc
-    // guarantees the FT is byte-identical between the two nets; this protects
-    // against accidentally pointing at an unrelated net.
     auto tempFt = std::make_unique<FeatureTransformer>();
     if (!Detail::read_parameters(stream, *tempFt))
     {
         std::cerr << "Overestimate net: failed to read feature transformer." << std::endl;
         return;
     }
-    if (tempFt->get_content_hash() != featureTransformer.get_content_hash())
-    {
-        std::cerr << "Overestimate net: feature transformer differs from main net; "
-                     "head disabled."
-                  << std::endl;
-        return;
-    }
 
-    // Read the per-bucket FC layer stacks into a temporary, so that a partial /
-    // failed read does not clobber the copy-of-main already in overestimateNetwork[].
     auto tempStacks = std::make_unique<NetworkArchitecture[]>(LayerStacks);
     for (std::size_t i = 0; i < LayerStacks; ++i)
-    {
         if (!Detail::read_parameters(stream, tempStacks[i]))
         {
-            std::cerr << "Overestimate net: failed to read layer stack " << i
-                      << "; keeping copy-of-main (uncertainty stays 0)." << std::endl;
+            std::cerr << "Overestimate net: failed to read layer stack " << i << std::endl;
             return;
         }
-    }
 
-    if (!(stream && stream.peek() == std::ios::traits_type::eof()))
+    // Now read the "OVRHEAD1" trailer + single-linear head into a temporary copy
+    // so a failed/partial read does not clobber the head already in place.
+    char magic[8] = {};
+    stream.read(magic, sizeof(magic));
+    static constexpr char UncertaintyTrailerMagic[8] = {'O', 'V', 'R', 'H', 'E', 'A', 'D', '1'};
+    if (stream.gcount() != std::streamsize(sizeof(magic))
+        || std::memcmp(magic, UncertaintyTrailerMagic, sizeof(magic)) != 0)
     {
-        std::cerr << "Overestimate net: trailing data / truncated file; "
-                     "keeping copy-of-main (uncertainty stays 0)."
-                  << std::endl;
+        std::cerr << "Overestimate net: no OVRHEAD1 trailer; head unchanged." << std::endl;
         return;
     }
 
-    // Commit: overwrite the copy-of-main FC layers with the real overestimate head.
-    for (std::size_t i = 0; i < LayerStacks; ++i)
-        overestimateNetwork[i] = tempStacks[i];
+    std::int32_t tmpBias[LayerStacks];
+    std::int8_t  tmpWeights[LayerStacks][L1];
+    for (std::size_t b = 0; b < LayerStacks; ++b)
+    {
+        tmpBias[b] = read_little_endian<std::int32_t>(stream);
+        for (std::size_t i = 0; i < L1; ++i)
+            tmpWeights[b][i] = read_little_endian<std::int8_t>(stream);
+    }
+    if (!(stream && stream.peek() == std::ios::traits_type::eof()))
+    {
+        std::cerr << "Overestimate net: corrupt/short trailer; head unchanged." << std::endl;
+        return;
+    }
 
-    overestimateLoaded = true;  // (already true; head remains initialized)
-    overestimateIsReal = true;  // a distinct overestimate net is now active
-    std::cerr << "Overestimate net loaded: " << evalfilePath
-              << " (uncertainty head now distinct from main)." << std::endl;
+    std::memcpy(uncBias, tmpBias, sizeof(uncBias));
+    std::memcpy(uncWeights, tmpWeights, sizeof(uncWeights));
+    overestimateIsReal = true;
+    std::cerr << "Overestimate head loaded: " << evalfilePath << std::endl;
 }
 
 
@@ -462,40 +556,58 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
             return false;
     }
 
-    // GUARANTEE: the overestimate / uncertainty head is ALWAYS initialized from
-    // the freshly-loaded main per-bucket FC layers. With no second head present
-    // this makes overestimate_value == main_value and uncertainty == 0 exactly
-    // (never random / uninitialized). This runs per Network object, so under NUMA
-    // replication each replica's overestimate head is copied from that replica's
-    // main head.
-    for (std::size_t i = 0; i < LayerStacks; ++i)
-        overestimateNetwork[i] = network[i];
-    overestimateLoaded = true;   // head initialized from the main network (== main)
-    overestimateIsReal = false;  // no distinct head yet
+    // GUARANTEE: the uncertainty head starts out all-zeros, so the delta — and
+    // hence the uncertainty — is exactly 0 (overestimate == main) for a plain
+    // single-head net. This runs per Network object, so under NUMA replication
+    // each replica is independently (re)initialized here before replication.
+    std::memset(uncWeights, 0, sizeof(uncWeights));
+    std::memset(uncBias, 0, sizeof(uncBias));
+    overestimateIsReal = false;
 
     // OPTIONAL SINGLE-FILE DUAL HEAD: the trunk (feature transformer) above is
-    // shared; an 8-byte magic may be followed by the overestimate head's
-    // per-bucket FC layer stacks in the SAME encoding as the main stacks. If
-    // present we overwrite the copy-of-main with the real overestimate head.
+    // shared; an 8-byte "OVRHEAD1" magic may be followed by the single-linear
+    // uncertainty head (per bucket: int32 bias + L1 int8 weights). A plain net
+    // without the trailer is fine (clean EOF) and leaves the head zeroed.
+    return read_uncertainty_trailer(stream);
+}
+
+
+// Reads the optional "OVRHEAD1" trailer. Returns false only on a corrupt or
+// short trailer; a clean EOF with no magic leaves the head zeroed and succeeds.
+bool Network::read_uncertainty_trailer(std::istream& stream) {
     char magic[8] = {};
     stream.read(magic, sizeof(magic));
     const std::streamsize got = stream.gcount();
+
     static constexpr char UncertaintyTrailerMagic[8] = {'O', 'V', 'R', 'H', 'E', 'A', 'D', '1'};
     if (got == std::streamsize(sizeof(magic))
         && std::memcmp(magic, UncertaintyTrailerMagic, sizeof(magic)) == 0)
-    {
-        for (std::size_t i = 0; i < LayerStacks; ++i)
-            if (!Detail::read_parameters(stream, overestimateNetwork[i]))
-                return false;
-        overestimateIsReal = true;
-        return stream && stream.peek() == std::ios::traits_type::eof();
-    }
+        return read_uncertainty_head(stream)
+            && stream && stream.peek() == std::ios::traits_type::eof();
 
-    // No trailer. A plain single-head net ends exactly here (clean EOF); anything
-    // else is unexpected trailing data.
+    // No trailer. A plain single-head net ends exactly here (clean EOF); any
+    // partial read is unexpected trailing data.
     if (got != 0)
         return false;
     stream.clear();
+    return true;
+}
+
+
+// Reads the per-bucket single-linear uncertainty head body, matching the
+// trainer's NNUEWriter.write_fc_layer encoding for an (L1 -> 1) layer:
+//   per bucket: int32 bias (1 value), then L1 int8 weights (no padding, since
+//   L1 % 32 == 0). No per-bucket hash prefix.
+bool Network::read_uncertainty_head(std::istream& stream) {
+    for (std::size_t b = 0; b < LayerStacks; ++b)
+    {
+        uncBias[b] = read_little_endian<std::int32_t>(stream);
+        for (std::size_t i = 0; i < L1; ++i)
+            uncWeights[b][i] = read_little_endian<std::int8_t>(stream);
+        if (!stream)
+            return false;
+    }
+    overestimateIsReal = true;
     return true;
 }
 

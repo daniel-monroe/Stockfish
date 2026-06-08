@@ -1278,7 +1278,7 @@ moves_loop:  // When in check, search starts here
         r -= std::abs(correctionValue) / 26131;
 
         if (ss->uncertainty != VALUE_NONE)
-            r -= (ss->uncertainty - 150) * 2;
+            r -= (ss->uncertainty - 150) * 4;
 
 
         // Increase reduction for cut nodes

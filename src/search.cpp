@@ -1277,6 +1277,10 @@ moves_loop:  // When in check, search starts here
         r -= moveCount * 62;
         r -= std::abs(correctionValue) / 26131;
 
+        if (ss->uncertainty != VALUE_NONE)
+            r -= (ss->uncertainty - 150) * 2;
+
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 3995 + 1059 * !ttData.move;

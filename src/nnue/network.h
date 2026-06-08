@@ -126,9 +126,13 @@ class Network {
     // (a clean EOF with no magic is fine and leaves the head zeroed).
     bool read_uncertainty_trailer(std::istream& stream);
 
-    // Read just the per-bucket single-linear head body (int32 bias + L1 int8
+    // Read just the per-bucket single-linear head body (int32 bias + 32 int8
     // weights per bucket) into uncBias[]/uncWeights[]. Sets overestimateIsReal.
     bool read_uncertainty_head(std::istream& stream);
+
+    // Width of the uncertainty head's input: the final-hidden activations that
+    // feed the main output layer fc_2 (the trainer's l2x_), = FC_1_OUTPUTS = L3.
+    static constexpr std::size_t UncDims = NetworkArchitecture::UncertaintyInputDims;
 
     // Input feature converter
     FeatureTransformer featureTransformer;
@@ -137,12 +141,14 @@ class Network {
     NetworkArchitecture network[LayerStacks];
 
     // Uncertainty / "overestimate" head: ONE linear layer per layer-stack bucket
-    // mapping the feature-transformer output (the same L1=1024 uint8 vector the
-    // main fc_0 consumes) to a single scalar delta. Quantized with the SAME
-    // weight scale as the main fc_0 (ls_l1), so the delta lives in the same
-    // integer units as the main head's skip term and can be added straight onto
-    // the pre-scaling main output. Zeroed when no trailer is present -> delta 0.
-    alignas(CacheLineSize) std::int8_t uncWeights[LayerStacks][L1];
+    // that branches off the main head's FINAL HIDDEN LAYER. It maps the clipped
+    // fc_1 activations (the UncDims = FC_1_OUTPUTS = 32 uint8 values that feed the
+    // main output layer fc_2, i.e. the trainer's l2x_) to a single scalar delta.
+    // Quantized with the SAME weight scale as the main fc_2 (ls_output), so the
+    // delta lives in the same integer units as the main head's pre-scaling output
+    // (fc_2_out[0] + skip) and can be added straight onto it. Zeroed when no
+    // trailer is present -> delta 0 -> overestimate == main exactly.
+    alignas(CacheLineSize) std::int8_t uncWeights[LayerStacks][UncDims];
     alignas(CacheLineSize) std::int32_t uncBias[LayerStacks];
 
     EvalFile evalFile;

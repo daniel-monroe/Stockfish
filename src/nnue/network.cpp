@@ -89,87 +89,40 @@ bool write_parameters(std::ostream& stream, const T& reference) {
 
 namespace {
 
-// Dot product of the uint8 feature-transformer output with the int8 per-bucket
-// uncertainty-head weights, plus the int32 bias. This is the same math as the
-// main fc_0's affine (input is uint8 unsigned, weights int8 signed), with a
-// single output.
+// Width of the uncertainty head's input: the final-hidden activations that feed
+// the main output layer fc_2 (the trainer's l2x_).
+constexpr std::size_t UncDims = NetworkArchitecture::UncertaintyInputDims;  // = L3 = 32
+
+// Single-linear uncertainty head: dot the UncDims (=32) uint8 final-hidden
+// activations (the clipped fc_1 output that feeds the main output layer fc_2)
+// with the int8 per-bucket uncertainty weights, plus the int32 bias. This is the
+// same affine math as the main fc_2 (input uint8 unsigned, weights int8 signed),
+// with a single output, quantized with the same ls_output weight scale — so the
+// result is already in the same integer units as fc_2_out[0] / fwdOut.
 //
-// Crucially it EXPLOITS THE SAME SPARSITY the main head uses, on EXACTLY the
-// build configs where the main fc_0 is sparse. The feature-transformer output
-// is mostly zero, and the sparse fc_0 (AffineTransformSparseInput) only visits
-// the nonzero 4-byte chunks recorded in nnzInfo. We mirror that here so the head
-// touches only the nonzero chunks (~the same memory the main head reads) rather
-// than all L1 features. A dense pass over all 1024 features measurably slows the
-// per-node eval (~5% in this micro-build); the sparse pass keeps it negligible.
-// Zero/absent inputs contribute nothing, so the result equals a dense dot.
-//
-// Only AVX512 keeps the sparse (nnz-index) path, because there the metadata is
-// chunk indices we can walk cheaply for a single output. For the SIMD-dpbusd
-// ISAs we just do a dense branchless dot (zeros contribute nothing, so it equals
-// the sparse result and avoids per-chunk bookkeeping). The scalar fallback is
-// used only when no SIMD is available.
-#if defined(USE_AVX512)
+// It is only 32 int8 MACs (one AVX2 dpbusd), so a tiny dense loop is plenty; no
+// sparsity is involved (the input here is the dense 32-wide hidden layer, not the
+// sparse feature-transformer output).
+#if defined(USE_AVX2)
 inline std::int32_t uncertainty_dot(const std::uint8_t* input,
                                     const std::int8_t*  weights,
-                                    std::int32_t        bias,
-                                    const NNZInfo<L1>&  nnzInfo) {
-    // AVX512 records nonzero 4-byte chunk indices directly.
-    std::int32_t sum   = bias;
-    const auto*  start = nnzInfo.nnz;
-    const auto*  end   = nnzInfo.nnz + nnzInfo.count;
-    for (; start < end; ++start)
-    {
-        const std::size_t c = *start;  // chunk index (4 features)
-        for (std::size_t t = 0; t < 4; ++t)
-            sum += std::int32_t(input[c * 4 + t]) * std::int32_t(weights[c * 4 + t]);
-    }
-    return sum;
-}
-#elif defined(USE_AVX2)
-inline std::int32_t uncertainty_dot(const std::uint8_t* input,
-                                    const std::int8_t*  weights,
-                                    std::int32_t        bias,
-                                    const NNZInfo<L1>&) {
-    // Dense AVX2 dpbusd over all L1 features. Zero inputs contribute nothing, so
-    // this equals the sparse result; doing it branchlessly with 32 dpbusd ops is
-    // faster than chasing the bitset for a single output. input is uint8
-    // (unsigned), weights int8 (signed) — exactly what dpbusd wants.
-    constexpr std::size_t NumChunk = L1 / sizeof(__m256i);  // 1024 / 32 = 32
-    __m256i               acc      = _mm256_setzero_si256();
-    const auto            in       = reinterpret_cast<const __m256i*>(input);
-    const auto            w        = reinterpret_cast<const __m256i*>(weights);
-    for (std::size_t j = 0; j < NumChunk; ++j)
-        SIMD::m256_add_dpbusd_epi32(acc, _mm256_load_si256(&in[j]), _mm256_load_si256(&w[j]));
+                                    std::int32_t        bias) {
+    static_assert(UncDims == sizeof(__m256i), "UncDims must be 32 for the AVX2 path");
+    __m256i acc = _mm256_setzero_si256();
+    SIMD::m256_add_dpbusd_epi32(acc, _mm256_load_si256(reinterpret_cast<const __m256i*>(input)),
+                                _mm256_load_si256(reinterpret_cast<const __m256i*>(weights)));
     return SIMD::m256_hadd(acc, bias);
-}
-#elif defined(USE_SSSE3)
-inline std::int32_t uncertainty_dot(const std::uint8_t* input,
-                                    const std::int8_t*  weights,
-                                    std::int32_t        bias,
-                                    const NNZInfo<L1>&) {
-    constexpr std::size_t NumChunk = L1 / sizeof(__m128i);  // 1024 / 16 = 64
-    __m128i               acc      = _mm_setzero_si128();
-    const auto            in       = reinterpret_cast<const __m128i*>(input);
-    const auto            w        = reinterpret_cast<const __m128i*>(weights);
-    for (std::size_t j = 0; j < NumChunk; ++j)
-        SIMD::m128_add_dpbusd_epi32(acc, _mm_load_si128(&in[j]), _mm_load_si128(&w[j]));
-    return SIMD::m128_hadd(acc, bias);
 }
 #else
 inline std::int32_t uncertainty_dot(const std::uint8_t* input,
                                     const std::int8_t*  weights,
-                                    std::int32_t        bias,
-                                    const NNZInfo<L1>&) {
-    // Dense fallback: used exactly when the main fc_0 is also dense (no sparse
-    // metadata available), so this is the apples-to-apples path for such builds.
+                                    std::int32_t        bias) {
     std::int32_t sum = bias;
-    for (std::size_t i = 0; i < L1; ++i)
+    for (std::size_t i = 0; i < UncDims; ++i)
         sum += std::int32_t(input[i]) * std::int32_t(weights[i]);
     return sum;
 }
 #endif
-
-#undef UNC_SEQ_OPT
 
 }  // namespace
 
@@ -265,17 +218,29 @@ DualNetworkOutput Network::evaluate_dual(const Position&    pos,
 
     // Run the single main FC stack; the accumulator/FT is shared. We also get
     // back the raw pre-scaling value (fwdOut) so the uncertainty delta can be
-    // added in the same integer units and re-scaled jointly.
-    std::int32_t mainFwd     = 0;
-    const auto   mainPositional = network[bucket].propagate(transformedFeatures, nnzInfo, mainFwd);
+    // added in the same integer units and re-scaled jointly. propagate() also
+    // copies out the clipped fc_1 activations — the final-hidden layer (the input
+    // to the main output layer fc_2, i.e. the trainer's l2x_) — that the
+    // uncertainty head branches off.
+    alignas(alignment) std::uint8_t fc2Input[UncDims];
+    std::int32_t                    mainFwd        = 0;
+    const auto mainPositional = network[bucket].propagate(transformedFeatures, nnzInfo, mainFwd,
+                                                          fc2Input);
 
-    // Uncertainty head: ONE linear layer on the SAME feature-transformer output
-    // (uint8 L1 activations) that the main fc_0 consumes, quantized with the same
-    // ls_l1 weight scale. The result is in the same units as the main head's skip
-    // term, so we add it to fwdOut and run it through the identical final scaling.
-    // Zero weights -> delta 0 -> overPositional == mainPositional exactly.
+    // Uncertainty head: ONE linear layer on the final-hidden activations (the
+    // UncDims=32 uint8 values that feed the main output layer fc_2), quantized
+    // with the same ls_output weight scale as fc_2. The result is therefore in
+    // the same integer units as fc_2's output / the main head's pre-scaling sum
+    // (fwdOut), so we add it to fwdOut and run it through the identical final
+    // scaling. Zero weights -> delta 0 -> overPositional == mainPositional.
+    // UNC_HEAD_OFF compiles the head out entirely (delta == 0) for bench A/B.
+#if defined(UNC_HEAD_OFF)
+    (void) fc2Input;
+    const std::int32_t deltaInt = 0;
+#else
     const std::int32_t deltaInt =
-      uncertainty_dot(transformedFeatures, uncWeights[bucket], uncBias[bucket], nnzInfo);
+      uncertainty_dot(fc2Input, uncWeights[bucket], uncBias[bucket]);
+#endif
 
     const auto overPositional =
       NetworkArchitecture::scale_fwd_out(std::int64_t(mainFwd) + std::int64_t(deltaInt));
@@ -433,11 +398,11 @@ void Network::load_overestimate(const std::string& rootDirectory, std::string ev
     }
 
     std::int32_t tmpBias[LayerStacks];
-    std::int8_t  tmpWeights[LayerStacks][L1];
+    std::int8_t  tmpWeights[LayerStacks][UncDims];
     for (std::size_t b = 0; b < LayerStacks; ++b)
     {
         tmpBias[b] = read_little_endian<std::int32_t>(stream);
-        for (std::size_t i = 0; i < L1; ++i)
+        for (std::size_t i = 0; i < UncDims; ++i)
             tmpWeights[b][i] = read_little_endian<std::int8_t>(stream);
     }
     if (!(stream && stream.peek() == std::ios::traits_type::eof()))
@@ -566,7 +531,7 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
 
     // OPTIONAL SINGLE-FILE DUAL HEAD: the trunk (feature transformer) above is
     // shared; an 8-byte "OVRHEAD1" magic may be followed by the single-linear
-    // uncertainty head (per bucket: int32 bias + L1 int8 weights). A plain net
+    // uncertainty head (per bucket: int32 bias + 32 int8 weights). A plain net
     // without the trailer is fine (clean EOF) and leaves the head zeroed.
     return read_uncertainty_trailer(stream);
 }
@@ -595,14 +560,14 @@ bool Network::read_uncertainty_trailer(std::istream& stream) {
 
 
 // Reads the per-bucket single-linear uncertainty head body, matching the
-// trainer's NNUEWriter.write_fc_layer encoding for an (L1 -> 1) layer:
-//   per bucket: int32 bias (1 value), then L1 int8 weights (no padding, since
-//   L1 % 32 == 0). No per-bucket hash prefix.
+// trainer's NNUEWriter.write_fc_layer encoding for a (UncDims -> 1) layer:
+//   per bucket: int32 bias (1 value), then UncDims (=FC_1_OUTPUTS=32) int8
+//   weights (no padding, since 32 % 32 == 0). No per-bucket hash prefix.
 bool Network::read_uncertainty_head(std::istream& stream) {
     for (std::size_t b = 0; b < LayerStacks; ++b)
     {
         uncBias[b] = read_little_endian<std::int32_t>(stream);
-        for (std::size_t i = 0; i < L1; ++i)
+        for (std::size_t i = 0; i < UncDims; ++i)
             uncWeights[b][i] = read_little_endian<std::int8_t>(stream);
         if (!stream)
             return false;

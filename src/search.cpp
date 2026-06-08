@@ -953,10 +953,11 @@ Value Search::Worker::search(
     {
         Value futilityMult = interpolate(std::min(int(depth), 10), 1, 10, 40, 80);
         futilityMult -= 20 * !ss->ttHit;
-
         Value futilityMargin = futilityMult * depth
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
+        if (ss->uncertainty != VALUE_NONE)
+            futilityMargin += std::clamp(ss->uncertainty - 150, -150, 150);
 
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;

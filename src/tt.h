@@ -48,17 +48,22 @@ struct TTData {
     Depth depth;
     Bound bound;
     bool  is_pv;
+    // Dequantized uncertainty (overestimate_value - main_value, internal units,
+    // >= 0) recovered from the TT entry. Auxiliary signal; not used for any
+    // pruning/search decision (see search.cpp). 0 when none was stored.
+    Value uncertainty;
 
     TTData() = delete;
 
     // clang-format off
-    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv) :
+    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv, Value unc) :
         move(m),
         value(v),
         eval(ev),
         depth(d),
         bound(b),
-        is_pv(pv) {};
+        is_pv(pv),
+        uncertainty(unc) {};
     // clang-format on
 };
 
@@ -67,7 +72,15 @@ struct TTData {
 // for chess reasons, we may decide the new data is less important than the old.
 struct TTWriter {
    public:
-    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void write(Key     k,
+               Value   v,
+               bool    pv,
+               Bound   b,
+               Depth   d,
+               Move    m,
+               Value   ev,
+               Value   uncertainty,
+               uint8_t generation8);
     void penalize(int penalty);  // decrement stored depth by the penalty
 
    private:

@@ -291,10 +291,14 @@ bool Search::Worker::iterative_deepening() {
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
+        (ss - i)->uncertainty                   = VALUE_NONE;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
-        (ss + i)->ply = i;
+    {
+        (ss + i)->ply         = i;
+        (ss + i)->uncertainty = VALUE_NONE;
+    }
 
     ss->pv = &pv;
 
@@ -767,6 +771,10 @@ Value Search::Worker::search(
     // Step 5. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
+    // Auxiliary NNUE uncertainty for this node (READ-ONLY for search; see Stack).
+    // Default 0; set below from a fresh dual-head pass or recovered from the TT.
+    ss->uncertainty = VALUE_ZERO;
+
     // Skip early pruning when in check
     if (ss->inCheck)
         ss->staticEval = eval = (ss - 2)->staticEval;
@@ -777,7 +785,11 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate(pos);
+            // Single NNUE pass yields both the static eval and the uncertainty.
+            unadjustedStaticEval = evaluate(pos, ss->uncertainty);
+        else
+            // TT supplied the eval: recover the persisted uncertainty too.
+            ss->uncertainty = ttData.uncertainty;
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -788,12 +800,13 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(pos);
+        // Single NNUE pass yields both the static eval and the uncertainty.
+        unadjustedStaticEval = evaluate(pos, ss->uncertainty);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
-                       unadjustedStaticEval, tt.generation());
+                       unadjustedStaticEval, ss->uncertainty, tt.generation());
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -897,7 +910,7 @@ Value Search::Worker::search(
                 {
                     ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, b,
                                    std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
-                                   tt.generation());
+                                   ss->uncertainty, tt.generation());
 
                     return value;
                 }
@@ -1032,7 +1045,8 @@ Value Search::Worker::search(
             {
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
+                               probCutDepth + 1, move, unadjustedStaticEval, ss->uncertainty,
+                               tt.generation());
 
                 if (!is_decisive(value))
                     return value - (probCutBeta - beta);
@@ -1530,7 +1544,7 @@ moves_loop:  // When in check, search starts here
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
                        moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), bestMove,
-                       unadjustedStaticEval, tt.generation());
+                       unadjustedStaticEval, ss->uncertainty, tt.generation());
 
     // Adjust correction history if the best move is not a capture
     // and the error direction matches whether we are above/below bounds.
@@ -1619,6 +1633,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
+
+    // Auxiliary NNUE uncertainty for this node (READ-ONLY for search; see Stack).
+    // VALUE_NONE means "not computed for this node" (e.g. in check / no eval).
+    ss->uncertainty = VALUE_NONE;
+
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
@@ -1631,7 +1650,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             unadjustedStaticEval = ttData.eval;
 
             if (!is_valid(unadjustedStaticEval))
-                unadjustedStaticEval = evaluate(pos);
+                // Single NNUE pass yields both the static eval and the uncertainty.
+                unadjustedStaticEval = evaluate(pos, ss->uncertainty);
+            else
+                // TT supplied the eval: recover the persisted uncertainty too.
+                ss->uncertainty = ttData.uncertainty;
 
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
@@ -1643,7 +1666,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            unadjustedStaticEval = evaluate(pos);
+            // Single NNUE pass yields both the static eval and the uncertainty.
+            unadjustedStaticEval = evaluate(pos, ss->uncertainty);
             ss->staticEval       = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
         }
@@ -1656,7 +1680,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
             if (!ss->ttHit)
                 ttWriter.write(posKey, VALUE_NONE, false, BOUND_LOWER, DEPTH_UNSEARCHED,
-                               Move::none(), unadjustedStaticEval, tt.generation());
+                               Move::none(), unadjustedStaticEval, ss->uncertainty,
+                               tt.generation());
             return bestValue;
         }
 
@@ -1782,7 +1807,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // is saved as it was before adjustment by correction history.
     ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), pvHit,
                    bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, DEPTH_QS, bestMove,
-                   unadjustedStaticEval, tt.generation());
+                   unadjustedStaticEval, ss->uncertainty, tt.generation());
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1811,6 +1836,21 @@ TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elaps
 Value Search::Worker::evaluate(const Position& pos) {
     return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
+}
+
+// Single NNUE pass (shared feature transformer / body, both FC heads) returning
+// the static eval and, via `uncertainty`, the overestimate-head uncertainty
+// (= overestimate_value - main_value, internal units, >= 0). When no real
+// overestimate net is loaded the head is a copy of the main head, so uncertainty
+// is exactly 0. The static eval is identical to evaluate(); uncertainty is
+// read into ss->uncertainty and persisted in the TT, and does not influence the
+// value search uses for any decision.
+Value Search::Worker::evaluate(const Position& pos, Value& uncertainty) {
+    Value v = Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
+                             optimism[pos.side_to_move()], uncertainty);
+    if (uncertainty < VALUE_ZERO)
+        uncertainty = VALUE_ZERO;
+    return v;
 }
 
 namespace {

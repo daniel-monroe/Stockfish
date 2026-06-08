@@ -45,6 +45,15 @@ struct AccumulatorCaches;
 
 using NetworkOutput = std::tuple<Value, Value>;
 
+// Output of a dual-head evaluation: the shared PSQT term, plus the positional
+// value from the main FC head and from the overestimate FC head. All in the
+// same internal units (pre-OutputScale-division). uncertainty = over - main.
+struct DualNetworkOutput {
+    Value psqt;
+    Value mainPositional;
+    Value overPositional;
+};
+
 // The network must be a trivial type, i.e. the memory must be in-line.
 // This is required to allow sharing the network via shared memory, as
 // there is no way to run destructors.
@@ -62,11 +71,29 @@ class Network {
     void load(const std::string& rootDirectory, std::string evalfilePath);
     bool save(const std::optional<std::string>& filename) const;
 
+    // Load only the layer-stack (FC) weights of a second, byte-identical-FT net
+    // (e.g. nn-overestimate.nnue) into overestimateNetwork[]. The FT read from
+    // the file is asserted equal to the already-loaded main FT, then discarded.
+    // On any mismatch/failure the overestimate head is left disabled.
+    void load_overestimate(const std::string& rootDirectory, std::string evalfilePath);
+
     std::size_t get_content_hash() const;
 
     NetworkOutput evaluate(const Position&    pos,
                            AccumulatorStack&  accumulatorStack,
                            AccumulatorCaches& cache) const;
+
+    // Like evaluate(), but builds the accumulator once and runs the FC stack
+    // twice: with the main FC weights and with the overestimate FC weights.
+    // If the overestimate head is not loaded, overPositional == mainPositional.
+    DualNetworkOutput evaluate_dual(const Position&    pos,
+                                    AccumulatorStack&  accumulatorStack,
+                                    AccumulatorCaches& cache) const;
+
+    // True only when a distinct overestimate net has been loaded via
+    // load_overestimate(). When false the overestimate head is a copy of the main
+    // head (uncertainty == 0). The head itself is always initialized (from main).
+    bool has_overestimate() const { return overestimateIsReal; }
 
 
     void verify(std::string evalfilePath, const std::function<void(std::string_view)>&) const;
@@ -92,12 +119,22 @@ class Network {
     // Input feature converter
     FeatureTransformer featureTransformer;
 
-    // Evaluation function
+    // Evaluation function (main value head)
     NetworkArchitecture network[LayerStacks];
+
+    // Second FC head (overestimate / uncertainty). Shares featureTransformer.
+    // Only populated by load_overestimate(); guarded by overestimateLoaded.
+    NetworkArchitecture overestimateNetwork[LayerStacks];
 
     EvalFile evalFile;
 
-    bool initialized = false;
+    bool initialized        = false;
+    // overestimateLoaded: the overestimate FC head is initialized (always true after
+    //   a main net load; it is a copy of the main head until a real net overwrites it).
+    // overestimateIsReal: a distinct nn-overestimate.nnue has been loaded, so the head
+    //   genuinely differs from main and uncertainty can be nonzero.
+    bool overestimateLoaded = false;
+    bool overestimateIsReal = false;
 
     // Hash value of evaluation function structure
     static constexpr std::uint32_t hash =

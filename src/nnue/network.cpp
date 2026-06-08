@@ -19,8 +19,10 @@
 #include "network.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <vector>
@@ -158,6 +160,36 @@ NetworkOutput Network::evaluate(const Position&    pos,
 }
 
 
+DualNetworkOutput Network::evaluate_dual(const Position&    pos,
+                                         AccumulatorStack&  accumulatorStack,
+                                         AccumulatorCaches& cache) const {
+
+    constexpr uint64_t alignment = CacheLineSize;
+
+    alignas(alignment) TransformedFeatureType transformedFeatures[FeatureTransformer::BufferSize];
+
+    ASSERT_ALIGNED(transformedFeatures, alignment);
+
+    NNZInfo<L1> nnzInfo;
+
+    const int  bucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    const auto psqt   = featureTransformer.transform(pos, accumulatorStack, cache,
+                                                      transformedFeatures, bucket, nnzInfo);
+
+    // Run the FC stack once with the main weights; the accumulator/FT is shared.
+    const auto mainPositional = network[bucket].propagate(transformedFeatures, nnzInfo);
+
+    // Run again with the overestimate FC weights if loaded, else mirror main.
+    const auto overPositional =
+      overestimateLoaded ? overestimateNetwork[bucket].propagate(transformedFeatures, nnzInfo)
+                         : mainPositional;
+
+    return {static_cast<Value>(psqt / OutputScale),
+            static_cast<Value>(mainPositional / OutputScale),
+            static_cast<Value>(overPositional / OutputScale)};
+}
+
+
 void Network::verify(std::string                                  evalfilePath,
                      const std::function<void(std::string_view)>& f) const {
     if (evalfilePath.empty())
@@ -234,6 +266,96 @@ void Network::load_user_net(const std::string& dir, const std::string& evalfileP
         evalFile.current        = evalfilePath;
         evalFile.netDescription = description.value();
     }
+}
+
+
+void Network::load_overestimate(const std::string& rootDirectory, std::string evalfilePath) {
+    // Note: overestimateNetwork[] has already been initialized in read_parameters()
+    // — either from the single-file dual-head trailer (a real head, overestimateIsReal
+    // == true) or as a copy of the main head (uncertainty == 0). An empty override
+    // path must PRESERVE that state. Only when a separate override file is given do
+    // we attempt to (re)load; on any failure we keep the existing head.
+    if (evalfilePath.empty())
+        return;
+
+    overestimateIsReal = false;
+
+    // Try the candidate directories in the same way load() does.
+#if defined(DEFAULT_NNUE_DIRECTORY)
+    std::vector<std::string> dirs = {"", rootDirectory, stringify(DEFAULT_NNUE_DIRECTORY)};
+#else
+    std::vector<std::string> dirs = {"", rootDirectory};
+#endif
+
+    std::ifstream stream;
+    for (const auto& directory : dirs)
+    {
+        stream.open(directory + evalfilePath, std::ios::binary);
+        if (stream.is_open())
+            break;
+        stream.clear();
+    }
+    if (!stream.is_open())
+    {
+        std::cerr << "Overestimate net not found: " << evalfilePath << std::endl;
+        return;
+    }
+
+    // Header: same Version and same arch hash as the main net (identical arch).
+    std::uint32_t hashValue;
+    std::string   description;
+    if (!read_header(stream, &hashValue, &description) || hashValue != Network::hash)
+    {
+        std::cerr << "Overestimate net header/arch mismatch: " << evalfilePath << std::endl;
+        return;
+    }
+
+    // Read the FT into a temporary and assert it equals the main FT. The doc
+    // guarantees the FT is byte-identical between the two nets; this protects
+    // against accidentally pointing at an unrelated net.
+    auto tempFt = std::make_unique<FeatureTransformer>();
+    if (!Detail::read_parameters(stream, *tempFt))
+    {
+        std::cerr << "Overestimate net: failed to read feature transformer." << std::endl;
+        return;
+    }
+    if (tempFt->get_content_hash() != featureTransformer.get_content_hash())
+    {
+        std::cerr << "Overestimate net: feature transformer differs from main net; "
+                     "head disabled."
+                  << std::endl;
+        return;
+    }
+
+    // Read the per-bucket FC layer stacks into a temporary, so that a partial /
+    // failed read does not clobber the copy-of-main already in overestimateNetwork[].
+    auto tempStacks = std::make_unique<NetworkArchitecture[]>(LayerStacks);
+    for (std::size_t i = 0; i < LayerStacks; ++i)
+    {
+        if (!Detail::read_parameters(stream, tempStacks[i]))
+        {
+            std::cerr << "Overestimate net: failed to read layer stack " << i
+                      << "; keeping copy-of-main (uncertainty stays 0)." << std::endl;
+            return;
+        }
+    }
+
+    if (!(stream && stream.peek() == std::ios::traits_type::eof()))
+    {
+        std::cerr << "Overestimate net: trailing data / truncated file; "
+                     "keeping copy-of-main (uncertainty stays 0)."
+                  << std::endl;
+        return;
+    }
+
+    // Commit: overwrite the copy-of-main FC layers with the real overestimate head.
+    for (std::size_t i = 0; i < LayerStacks; ++i)
+        overestimateNetwork[i] = tempStacks[i];
+
+    overestimateLoaded = true;  // (already true; head remains initialized)
+    overestimateIsReal = true;  // a distinct overestimate net is now active
+    std::cerr << "Overestimate net loaded: " << evalfilePath
+              << " (uncertainty head now distinct from main)." << std::endl;
 }
 
 
@@ -339,7 +461,42 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
         if (!Detail::read_parameters(stream, network[i]))
             return false;
     }
-    return stream && stream.peek() == std::ios::traits_type::eof();
+
+    // GUARANTEE: the overestimate / uncertainty head is ALWAYS initialized from
+    // the freshly-loaded main per-bucket FC layers. With no second head present
+    // this makes overestimate_value == main_value and uncertainty == 0 exactly
+    // (never random / uninitialized). This runs per Network object, so under NUMA
+    // replication each replica's overestimate head is copied from that replica's
+    // main head.
+    for (std::size_t i = 0; i < LayerStacks; ++i)
+        overestimateNetwork[i] = network[i];
+    overestimateLoaded = true;   // head initialized from the main network (== main)
+    overestimateIsReal = false;  // no distinct head yet
+
+    // OPTIONAL SINGLE-FILE DUAL HEAD: the trunk (feature transformer) above is
+    // shared; an 8-byte magic may be followed by the overestimate head's
+    // per-bucket FC layer stacks in the SAME encoding as the main stacks. If
+    // present we overwrite the copy-of-main with the real overestimate head.
+    char magic[8] = {};
+    stream.read(magic, sizeof(magic));
+    const std::streamsize got = stream.gcount();
+    static constexpr char UncertaintyTrailerMagic[8] = {'O', 'V', 'R', 'H', 'E', 'A', 'D', '1'};
+    if (got == std::streamsize(sizeof(magic))
+        && std::memcmp(magic, UncertaintyTrailerMagic, sizeof(magic)) == 0)
+    {
+        for (std::size_t i = 0; i < LayerStacks; ++i)
+            if (!Detail::read_parameters(stream, overestimateNetwork[i]))
+                return false;
+        overestimateIsReal = true;
+        return stream && stream.peek() == std::ios::traits_type::eof();
+    }
+
+    // No trailer. A plain single-head net ends exactly here (clean EOF); anything
+    // else is unexpected trailing data.
+    if (got != 0)
+        return false;
+    stream.clear();
+    return true;
 }
 
 

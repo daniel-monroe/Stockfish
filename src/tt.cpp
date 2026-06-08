@@ -35,16 +35,17 @@
 namespace Stockfish {
 
 
-// TTEntry struct is the 10 bytes transposition table entry, defined as:
+// TTEntry struct is the 11 bytes transposition table entry, defined as:
 //
-// key        16 bit
-// depth       8 bit
-// pv node     1 bit
-// bound type  2 bit
-// generation  5 bit
-// move       16 bit
-// value      16 bit
-// evaluation 16 bit
+// key         16 bit
+// depth        8 bit
+// pv node      1 bit
+// bound type   2 bit
+// generation   5 bit
+// move        16 bit
+// value       16 bit
+// evaluation  16 bit
+// uncertainty  8 bit
 //
 // These fields are in the same order as accessed by TT::probe(), since memory is fastest sequentially.
 // Equally, the store order in save() matches this order.
@@ -53,12 +54,44 @@ namespace Stockfish {
 // externally, so we offset the internal depth by DEPTH_NONE.
 //
 // Pv, bound and generation are packed in a single byte.
+//
+// uncertainty8 was added (entry 10 -> 11 bytes) to persist the NNUE overestimate-head
+// uncertainty (= overestimate_value - main_value). It is VALUE_NONE ("not computed")
+// or a non-negative internal-unit value. There were no spare bits in genBound8
+// (5+2+1 = all 8 used) nor a per-entry pad, so the entry was widened by one byte.
+// Encoding: code 0 = VALUE_NONE; codes 1..255 = values 0 .. 254*UNCERTAINTY_SCALE.
+// With UNCERTAINTY_SCALE = 2 the resolution is 2 internal units and the maximum
+// representable uncertainty is 254 * 2 = 508 internal units (values above saturate).
 static constexpr uint8_t GENERATION_BITS = 5;
 static constexpr uint8_t GENERATION_MASK = (1 << GENERATION_BITS) - 1;
 static constexpr uint8_t BOUND_SHIFT     = GENERATION_BITS;
 static constexpr uint8_t BOUND_MASK      = 0b11 << BOUND_SHIFT;
 static constexpr uint8_t PV_SHIFT        = BOUND_SHIFT + 2;
 static constexpr uint8_t PV_MASK         = 1 << PV_SHIFT;
+
+// Quantization for the 8-bit uncertainty field. Uncertainty is either VALUE_NONE
+// ("not computed for this node") or a non-negative internal-unit value. Code 0 is
+// reserved for VALUE_NONE; codes 1..255 encode values 0 .. 254*UNCERTAINTY_SCALE.
+static constexpr int UNCERTAINTY_SCALE = 2;    // internal units per quantization step
+static constexpr int UNCERTAINTY_MAX   = 254;  // max stored code-1 (-> 508 internal units)
+
+static uint8_t quantize_uncertainty(Value uncertainty) {
+    if (uncertainty == VALUE_NONE)
+        return 0;  // sentinel: not computed
+    int u = int(uncertainty);
+    if (u < 0)
+        u = 0;
+    u /= UNCERTAINTY_SCALE;
+    if (u > UNCERTAINTY_MAX)
+        u = UNCERTAINTY_MAX;
+    return uint8_t(u + 1);  // codes 1..255
+}
+
+static Value dequantize_uncertainty(uint8_t u) {
+    if (u == 0)
+        return VALUE_NONE;
+    return Value((int(u) - 1) * UNCERTAINTY_SCALE);
+}
 
 struct TTEntry {
 
@@ -69,11 +102,20 @@ struct TTEntry {
                       Value(eval16),
                       Depth(DEPTH_NONE + depth8),
                       Bound((genBound8 & BOUND_MASK) >> BOUND_SHIFT),
-                      bool(genBound8 & PV_MASK)};
+                      bool(genBound8 & PV_MASK),
+                      dequantize_uncertainty(uncertainty8)};
     }
 
-    bool is_occupied() const { return bool(depth8); };
-    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t curr_generation);
+    bool    is_occupied() const { return bool(depth8); };
+    void    save(Key     k,
+                 Value   v,
+                 bool    pv,
+                 Bound   b,
+                 Depth   d,
+                 Move    m,
+                 Value   ev,
+                 Value   uncertainty,
+                 uint8_t curr_generation);
     uint8_t relative_age(const uint8_t curr_generation) const;
 
    private:
@@ -86,12 +128,20 @@ struct TTEntry {
     Move     move16;
     int16_t  value16;
     int16_t  eval16;
+    uint8_t  uncertainty8;
 };
 
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is non-atomic and can be racy.
-void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t curr_generation) {
+void TTEntry::save(Key     k,
+                   Value   v,
+                   bool    pv,
+                   Bound   b,
+                   Depth   d,
+                   Move    m,
+                   Value   ev,
+                   Value   uncertainty,
+                   uint8_t curr_generation) {
 
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
@@ -105,11 +155,12 @@ void TTEntry::save(
         assert(d - DEPTH_NONE < 256);
         assert(curr_generation <= GENERATION_MASK);  // TT::new_search() plays nice
 
-        key16     = uint16_t(k);
-        depth8    = uint8_t(d - DEPTH_NONE);
-        genBound8 = uint8_t(curr_generation | b << BOUND_SHIFT | uint8_t(pv) << PV_SHIFT);
-        value16   = int16_t(v);
-        eval16    = int16_t(ev);
+        key16        = uint16_t(k);
+        depth8       = uint8_t(d - DEPTH_NONE);
+        genBound8    = uint8_t(curr_generation | b << BOUND_SHIFT | uint8_t(pv) << PV_SHIFT);
+        value16      = int16_t(v);
+        eval16       = int16_t(ev);
+        uncertainty8 = quantize_uncertainty(uncertainty);
     }
     // Secondary aging. Important for elementary mate finding.
     // (*Scaler) Secondary aging on entries relevant to singular extensions
@@ -137,9 +188,16 @@ uint8_t TTEntry::relative_age(const uint8_t curr_generation) const {
 TTWriter::TTWriter(TTEntry* tte) :
     entry(tte) {}
 
-void TTWriter::write(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t curr_generation) {
-    entry->save(k, v, pv, b, d, m, ev, curr_generation);
+void TTWriter::write(Key     k,
+                     Value   v,
+                     bool    pv,
+                     Bound   b,
+                     Depth   d,
+                     Move    m,
+                     Value   ev,
+                     Value   uncertainty,
+                     uint8_t curr_generation) {
+    entry->save(k, v, pv, b, d, m, ev, uncertainty, curr_generation);
 }
 
 void TTWriter::penalize(int penalty) {
@@ -154,12 +212,20 @@ void TTWriter::penalize(int penalty) {
 
 static constexpr int ClusterSize = 3;
 
+// Each TTEntry is now 12 bytes: the new uncertainty8 field grew the logical size
+// from 10 to 11 bytes, and the compiler pads to 12 for the 2-byte alignment of the
+// 16-bit members. ClusterSize * 12 = 36 bytes of entries. We pad the cluster up to
+// a full 64-byte cache line so each cluster occupies exactly one cache line (it was
+// padded to 32 before). This roughly doubles the TT entry-array footprint vs. the
+// old 32-byte cluster -- the minimum needed to persist the uncertainty value
+// (requirement: persisting wins over keeping entry size constant).
 struct Cluster {
     TTEntry entry[ClusterSize];
-    char    padding[2];  // Pad to 32 bytes
+    char    padding[28];  // Pad to 64 bytes (one cache line)
 };
 
-static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");
+static_assert(sizeof(TTEntry) == 12, "Unexpected TTEntry size");
+static_assert(sizeof(Cluster) == 64, "Suboptimal Cluster size");
 
 
 // Sets the size of the transposition table,
@@ -270,7 +336,8 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
             > tte[i].depth8 - 8 * tte[i].relative_age(generation8))
             replace = &tte[i];
 
-    return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false},
+    return {false,
+            TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false, VALUE_ZERO},
             TTWriter(replace)};
 }
 

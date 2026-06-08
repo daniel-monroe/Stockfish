@@ -33,7 +33,7 @@ namespace Eval {
 // for the build process (profile-build and fishtest) to work. Do not change the
 // name of the macro or the location where this macro is defined, as it is used
 // in the Makefile/Fishtest.
-#define EvalFileDefaultName "nn-71d6d32cb962.nnue"
+#define EvalFileDefaultName "nn-5e3649860698.nnue"
 
 namespace NNUE {
 class Network;
@@ -48,6 +48,17 @@ Value evaluate(const NNUE::Network&           network,
                Eval::NNUE::AccumulatorStack&  accumulators,
                Eval::NNUE::AccumulatorCaches& caches,
                int                            optimism);
+
+// Same as evaluate(), but in a SINGLE NNUE pass (one feature-transformer /
+// body evaluation shared by both heads) it also returns the overestimate-head
+// uncertainty (= overestimate_value - main_value, internal units, >= 0) via
+// `uncertainty`. The returned static eval is identical to evaluate().
+Value evaluate(const NNUE::Network&           network,
+               const Position&                pos,
+               Eval::NNUE::AccumulatorStack&  accumulators,
+               Eval::NNUE::AccumulatorCaches& caches,
+               int                            optimism,
+               Value&                         uncertainty);
 }  // namespace Eval
 
 }  // namespace Stockfish

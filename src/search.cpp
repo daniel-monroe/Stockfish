@@ -772,13 +772,20 @@ Value Search::Worker::search(
     Value unadjustedStaticEval = VALUE_NONE;
 
     // Auxiliary NNUE uncertainty for this node (READ-ONLY for search; see Stack).
-    // Default 0; set below from a fresh dual-head pass or recovered from the TT.
-    ss->uncertainty = VALUE_ZERO;
+    // VALUE_NONE means "not computed for this node". It is set per-branch below;
+    // crucially it is NOT reset unconditionally here, because the singular-extension
+    // search re-enters with the SAME ss (excludedMove set), and an unconditional
+    // reset would clobber the outer node's already-computed uncertainty (which the
+    // outer node later persists to the TT). Like staticEval, excludedMove preserves it.
 
     // Skip early pruning when in check
     if (ss->inCheck)
+    {
         ss->staticEval = eval = (ss - 2)->staticEval;
+        ss->uncertainty = VALUE_NONE;  // not computed when in check
+    }
     else if (excludedMove)
+        // Reuse the outer (singular) node's staticEval AND uncertainty; don't reset.
         unadjustedStaticEval = eval = ss->staticEval;
     else if (ss->ttHit)
     {

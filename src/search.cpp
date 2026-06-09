@@ -964,6 +964,9 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
+        if (ss->uncertainty != VALUE_NONE)
+            futilityMargin += std::clamp(ss->uncertainty - 150, -150, 150) / 2;
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }
@@ -1612,6 +1615,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     ss->inCheck = pos.checkers();
     moveCount   = 0;
 
+    // Auxiliary NNUE uncertainty for this node (READ-ONLY for search; see Stack).
+    // VALUE_NONE means "not computed for this node" (e.g. in check / no eval).
+    // Reset here in Step 1 so EVERY exit path — including the early draw/max-ply
+    // and TT-cutoff returns below — leaves a defined value rather than whatever
+    // the previous occupant of this stack slot left behind.
+    ss->uncertainty = VALUE_NONE;
+
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && selDepth < ss->ply + 1)
         selDepth = ss->ply + 1;
@@ -1639,10 +1649,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
-
-    // Auxiliary NNUE uncertainty for this node (READ-ONLY for search; see Stack).
-    // VALUE_NONE means "not computed for this node" (e.g. in check / no eval).
-    ss->uncertainty = VALUE_NONE;
+    // ss->uncertainty was reset to VALUE_NONE in Step 1; the branches below
+    // either leave it (in check) or set it together with unadjustedStaticEval,
+    // keeping the (eval, uncertainty) pair consistent at every TT write.
 
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;

@@ -772,13 +772,20 @@ Value Search::Worker::search(
     Value unadjustedStaticEval = VALUE_NONE;
 
     // Auxiliary NNUE uncertainty for this node (READ-ONLY for search; see Stack).
-    // Default 0; set below from a fresh dual-head pass or recovered from the TT.
-    ss->uncertainty = VALUE_ZERO;
+    // VALUE_NONE means "not computed for this node". It is set per-branch below;
+    // crucially it is NOT reset unconditionally here, because the singular-extension
+    // search re-enters with the SAME ss (excludedMove set), and an unconditional
+    // reset would clobber the outer node's already-computed uncertainty (which the
+    // outer node later persists to the TT). Like staticEval, excludedMove preserves it.
 
     // Skip early pruning when in check
     if (ss->inCheck)
+    {
         ss->staticEval = eval = (ss - 2)->staticEval;
+        ss->uncertainty = VALUE_NONE;  // not computed when in check
+    }
     else if (excludedMove)
+        // Reuse the outer (singular) node's staticEval AND uncertainty; don't reset.
         unadjustedStaticEval = eval = ss->staticEval;
     else if (ss->ttHit)
     {
@@ -953,7 +960,6 @@ Value Search::Worker::search(
     {
         Value futilityMult = interpolate(std::min(int(depth), 10), 1, 10, 40, 80);
         futilityMult -= 20 * !ss->ttHit;
-
         Value futilityMargin = futilityMult * depth
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
@@ -1208,13 +1214,8 @@ moves_loop:  // When in check, search starts here
             Value singularBeta  = ttData.value - (60 + 70 * (ss->ttPv && !PvNode)) * depth / 59;
             Depth singularDepth = newDepth / 2;
 
-            // The singular search re-enters with the SAME ss, so its Step 5 resets
-            // ss->uncertainty. Save/restore this node's value so it stays intact for
-            // this node's later TT store (and any post-loop use).
-            ss->excludedMove             = move;
-            const Value savedUncertainty = ss->uncertainty;
+            ss->excludedMove = move;
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-            ss->uncertainty  = savedUncertainty;
             ss->excludedMove = Move::none();
 
             if (value < singularBeta)

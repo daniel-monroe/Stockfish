@@ -965,7 +965,7 @@ Value Search::Worker::search(
                              + std::abs(correctionValue) / 182069;
 
         if (ss->uncertainty != VALUE_NONE)
-            r -= (ss->uncertainty - 150) * 2;
+            futilityMargin += std::clamp(ss->uncertainty - 150, -150, 150) / 2;
 
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;

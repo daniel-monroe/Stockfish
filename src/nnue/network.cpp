@@ -227,25 +227,23 @@ DualNetworkOutput Network::evaluate_dual(const Position&    pos,
     const auto mainPositional = network[bucket].propagate(transformedFeatures, nnzInfo, mainFwd,
                                                           fc2Input);
 
-    // Uncertainty head: ONE linear layer on the final-hidden activations (the
-    // UncDims=32 uint8 values that feed the main output layer fc_2), quantized
-    // with the same ls_output weight scale as fc_2. The result is therefore in
-    // the same integer units as fc_2's output / the main head's pre-scaling sum
-    // (fwdOut), so we add it to fwdOut and run it through the identical final
-    // scaling. Zero weights -> delta 0 -> overPositional == mainPositional.
+    // Futility head: ONE linear layer (the int8 weights w8 trained on futility-
+    // success data, loaded into uncWeights[]) over the 32 final-hidden activations
+    // (the UncDims=32 uint8 values feeding the main output layer fc_2). The raw int
+    // dot product `deltaInt` IS the trained futility signal; it is consumed directly
+    // by Step-8 futility pruning. There is no separate "overestimate" output: the
+    // head is exactly this linear combination. (void) mainFwd — the head no longer
+    // adds itself to the main forward sum.
+    (void) mainFwd;
     const std::int32_t deltaInt =
       uncertainty_dot(fc2Input, uncWeights[bucket], uncBias[bucket]);
 
-    const auto overPositional =
-      NetworkArchitecture::scale_fwd_out(std::int64_t(mainFwd) + std::int64_t(deltaInt));
-
     DualNetworkOutput out{static_cast<Value>(psqt / OutputScale),
                           static_cast<Value>(mainPositional / OutputScale),
-                          static_cast<Value>(overPositional / OutputScale),
+                          deltaInt,
                           {}};
-    // Carry out the 32 final-hidden activations (the input to fc_2) so search-side
-    // diagnostics can correlate each neuron with prune outcomes. Passive: it feeds
-    // no search decision. These are the SAME bytes the uncertainty head consumed.
+    // Carry out the 32 final-hidden activations (the input to fc_2). Currently unused
+    // by search (the diagnostics that read them were removed); kept as a cheap hook.
     std::memcpy(out.finalHidden.data(), fc2Input, UncDims * sizeof(std::uint8_t));
     return out;
 }

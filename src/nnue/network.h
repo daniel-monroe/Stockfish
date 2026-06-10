@@ -59,7 +59,12 @@ using NetworkOutput = std::tuple<Value, Value>;
 struct DualNetworkOutput {
     Value psqt;
     Value mainPositional;
-    Value overPositional;
+    // Raw futility-head output: the int dot product acts.w8 (+bias) over the 32
+    // final-hidden activations, in pre-scaling integer units. This IS the trained
+    // futility-success signal consumed by Step-8 futility pruning (search.cpp);
+    // it is signed and NOT clamped. There is no "overestimate" value anymore — the
+    // auxiliary head is exactly this linear combination.
+    std::int32_t delta;
     std::array<std::uint8_t, NetworkArchitecture::UncertaintyInputDims> finalHidden;
 };
 

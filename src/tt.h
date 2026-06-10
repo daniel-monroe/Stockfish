@@ -47,17 +47,22 @@ struct TTData {
     Depth depth;
     Bound bound;
     bool  is_pv;
+    // Dequantized uncertainty (overestimate_value - main_value, internal units,
+    // >= 0) recovered from the TT entry. Auxiliary signal; not used for any
+    // pruning/search decision (see search.cpp). 0 when none was stored.
+    Value uncertainty;
 
     TTData() = delete;
 
     // clang-format off
-    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv) :
+    TTData(Move m, Value v, Value ev, Depth d, Bound b, bool pv, Value unc) :
         move(m),
         value(v),
         eval(ev),
         depth(d),
         bound(b),
-        is_pv(pv) {};
+        is_pv(pv),
+        uncertainty(unc) {};
     // clang-format on
 };
 
@@ -66,13 +71,26 @@ struct TTData {
 // for chess reasons, we may decide the new data is less important than the old.
 struct TTWriter {
    public:
-    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, u8 generation8);
+    void write(Key   k,
+               Value v,
+               bool  pv,
+               Bound b,
+               Depth d,
+               Move  m,
+               Value ev,
+               Value uncertainty,
+               u8    generation8);
     void penalize(int penalty);  // decrement stored depth by the penalty
 
    private:
     friend class TranspositionTable;
     TTEntry* entry;
-    TTWriter(TTEntry* tte);
+    // The 5-bit-per-entry uncertainty codes live in the cluster (not the entry), so
+    // the writer also carries the cluster's packed-codes word and this entry's slot
+    // index within the cluster. See tt.cpp for the packing.
+    RelaxedAtomic<u16>* clusterUnc;
+    int                 slot;
+    TTWriter(TTEntry* tte, RelaxedAtomic<u16>* clusterUnc, int slot);
 };
 
 

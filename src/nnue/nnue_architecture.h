@@ -138,6 +138,66 @@ struct NetworkArchitecture {
         return outputValue;
     }
 
+    // Applies the SAME final scaling propagate() uses to map an internal
+    // accumulator value (in "fwdOut" units, where the main head's skip term and
+    // the uncertainty head's delta both live) into the engine's pre-OutputScale
+    // value units. Used by the uncertainty head so its delta rides the exact
+    // same quantization path as the main output.
+    static std::int32_t scale_fwd_out(std::int64_t fwdOut) {
+        constexpr std::int64_t multiplier  = 600 * OutputScale;
+        constexpr std::int64_t denominator = static_cast<std::int64_t>(HiddenOneVal)
+                                           * static_cast<std::int64_t>(1U << WeightScaleBits) * 2;
+        return static_cast<std::int32_t>((fwdOut * multiplier) / denominator);
+    }
+
+    // Number of activations that feed the output layer fc_2 (the "final hidden
+    // layer" the uncertainty head branches off, matching the trainer's l2x_).
+    static constexpr int UncertaintyInputDims = FC_1_OUTPUTS;  // = L3 = 32
+
+    // Like propagate(), but also returns the raw pre-scaling accumulator value
+    // (fwdOut), so a caller can add an extra term (the uncertainty delta) in the
+    // same units and re-scale jointly for exact parity with the trainer. It also
+    // copies out the clipped fc_1 activations (the input to the output layer
+    // fc_2) — the SAME final-hidden activations the trainer's uncertainty head
+    // consumes — so the caller can run the single-linear uncertainty head on them.
+    std::int32_t propagate(const TransformedFeatureType* transformedFeatures,
+                           const NNZInfo<L1>&            nnzInfo,
+                           std::int32_t&                 fwdOutRaw,
+                           std::uint8_t fc2Input[UncertaintyInputDims]) const {
+        struct alignas(CacheLineSize) Buffer {
+            alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
+            alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
+              ac_sqr_0_out[ceil_to_multiple<IndexType>(FC_0_OUTPUTS * 2, 32)];
+            alignas(CacheLineSize) typename decltype(ac_0)::OutputBuffer ac_0_out;
+            alignas(CacheLineSize) typename decltype(fc_1)::OutputBuffer fc_1_out;
+            alignas(CacheLineSize) typename decltype(ac_1)::OutputBuffer ac_1_out;
+            alignas(CacheLineSize) typename decltype(fc_2)::OutputBuffer fc_2_out;
+
+            Buffer() { std::memset(ac_sqr_0_out, 0, sizeof(ac_sqr_0_out)); }
+        };
+
+        Buffer buffer;
+
+        fc_0.propagate(transformedFeatures, buffer.fc_0_out, nnzInfo);
+        ac_sqr_0.propagate(buffer.fc_0_out, buffer.ac_sqr_0_out);
+        ac_0.propagate(buffer.fc_0_out, buffer.ac_0_out);
+        std::memcpy(buffer.ac_sqr_0_out + FC_0_OUTPUTS, buffer.ac_0_out,
+                    FC_0_OUTPUTS * sizeof(typename decltype(ac_0)::OutputType));
+        fc_1.propagate(buffer.ac_sqr_0_out, buffer.fc_1_out);
+        ac_1.propagate(buffer.fc_1_out, buffer.ac_1_out);
+
+        // ac_1_out is the clipped fc_1 output: the uint8 input to fc_2 (the
+        // output layer), i.e. the trainer's final-hidden activations l2x_. Hand
+        // these to the uncertainty head. ac_1's OutputBuffer is uint8 and its
+        // logical width is FC_1_OUTPUTS.
+        std::memcpy(fc2Input, buffer.ac_1_out, UncertaintyInputDims * sizeof(std::uint8_t));
+
+        fc_2.propagate(buffer.ac_1_out, buffer.fc_2_out);
+
+        fwdOutRaw = buffer.fc_2_out[0] + buffer.fc_0_out[FC_0_OUTPUTS];
+        return scale_fwd_out(fwdOutRaw);
+    }
+
     usize get_content_hash() const {
         usize h = 0;
         hash_combine(h, fc_0.get_content_hash());

@@ -89,6 +89,7 @@ class Engine {
     void                                 verify_network() const;
     std::unique_ptr<Eval::NNUE::Network> get_default_network() const;
     void                                 load_network(const std::string& file);
+    void                                 load_overestimate_network(const std::string& file);
     void save_network(std::pair<std::optional<std::string>, std::string> file);
 
     // utility functions

@@ -52,6 +52,14 @@ namespace Stockfish {
 // externally, so we offset the internal depth by DEPTH_NONE.
 //
 // Pv, bound and generation are packed in a single byte.
+//
+// The NNUE overestimate-head uncertainty (= overestimate_value - main_value, a
+// non-negative internal-unit value, or VALUE_NONE = "not computed") is persisted
+// WITHOUT growing the entry: it is quantized to a 5-bit code and packed into the
+// cluster's 2 otherwise-unused padding bytes (3 entries * 5 bits = 15 of 16 bits).
+// The entry therefore stays 10 bytes and the cluster stays 32 bytes, byte-identical
+// to upstream, so this auxiliary signal does not perturb TT geometry, replacement,
+// or search. It is NOT read by any pruning/search decision (see search.cpp).
 static constexpr u8 GENERATION_BITS = 5;
 static constexpr u8 GENERATION_MASK = (1 << GENERATION_BITS) - 1;
 static constexpr u8 BOUND_SHIFT     = GENERATION_BITS;
@@ -59,20 +67,73 @@ static constexpr u8 BOUND_MASK      = 0b11 << BOUND_SHIFT;
 static constexpr u8 PV_SHIFT        = BOUND_SHIFT + 2;
 static constexpr u8 PV_MASK         = 1 << PV_SHIFT;
 
+// 5-bit quantization for the packed-in-padding uncertainty code. Uncertainty is
+// either VALUE_NONE ("not computed for this node") or a non-negative internal-unit
+// value. Code 0 is reserved for VALUE_NONE; codes 1..31 encode values
+// 0 .. 30*UNCERTAINTY_SCALE (= 720) at a resolution of UNCERTAINTY_SCALE; larger
+// values saturate.
+static constexpr int UNCERTAINTY_SCALE   = 24;  // internal units per quantization step
+static constexpr int UNCERTAINTY_MAXCODE = 30;  // max stored code-1 (-> 720 internal units)
+static constexpr u16 UNCERTAINTY_BITS    = 5;
+static constexpr u16 UNCERTAINTY_FIELD   = (1u << UNCERTAINTY_BITS) - 1;  // 0x1F
+
+static u8 quantize_uncertainty(Value uncertainty) {
+    if (uncertainty == VALUE_NONE)
+        return 0;  // sentinel: not computed
+    int u = int(uncertainty);
+    if (u < 0)
+        u = 0;
+    u /= UNCERTAINTY_SCALE;
+    if (u > UNCERTAINTY_MAXCODE)
+        u = UNCERTAINTY_MAXCODE;
+    return u8(u + 1);  // codes 1..31
+}
+
+static Value dequantize_uncertainty(u8 code) {
+    if (code == 0)
+        return VALUE_NONE;
+    return Value((int(code) - 1) * UNCERTAINTY_SCALE);
+}
+
+// Extract / insert the 5-bit code for cluster slot `slot` (0..ClusterSize-1) within
+// the cluster's packed 16-bit padding word.
+static u8 unpack_uncertainty(u16 packed, int slot) {
+    return u8((packed >> (UNCERTAINTY_BITS * slot)) & UNCERTAINTY_FIELD);
+}
+
+static u16 pack_uncertainty(u16 packed, int slot, u8 code) {
+    const u16 sh = u16(UNCERTAINTY_BITS * slot);
+    return u16((packed & ~(UNCERTAINTY_FIELD << sh)) | (u16(code & UNCERTAINTY_FIELD) << sh));
+}
+
 struct TTEntry {
 
-    // Convert internal bitfields to external types
-    TTData read() const {
+    // Convert internal bitfields to external types. The uncertainty is stored in the
+    // cluster (not the entry), so the caller (probe) passes in the dequantized value.
+    TTData read(Value uncertainty) const {
         return TTData{Move(move16),
                       Value(value16),
                       Value(eval16),
                       Depth(DEPTH_NONE + depth8),
                       Bound((genBound8 & BOUND_MASK) >> BOUND_SHIFT),
-                      bool(genBound8 & PV_MASK)};
+                      bool(genBound8 & PV_MASK),
+                      uncertainty};
     }
 
     bool is_occupied() const { return bool(depth8); };
-    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, u8 curr_generation);
+    // `clusterUnc`/`slot` locate this entry's 5-bit uncertainty code in the parent
+    // cluster's packed padding word; written only when the entry is overwritten.
+    void save(Key                 k,
+              Value               v,
+              bool                pv,
+              Bound               b,
+              Depth               d,
+              Move                m,
+              Value               ev,
+              Value               uncertainty,
+              u8                  curr_generation,
+              RelaxedAtomic<u16>* clusterUnc,
+              int                 slot);
     u8   relative_age(const u8 curr_generation) const;
 
    private:
@@ -89,8 +150,17 @@ struct TTEntry {
 
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is non-atomic and can be racy.
-void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, u8 curr_generation) {
+void TTEntry::save(Key                 k,
+                   Value               v,
+                   bool                pv,
+                   Bound               b,
+                   Depth               d,
+                   Move                m,
+                   Value               ev,
+                   Value               uncertainty,
+                   u8                  curr_generation,
+                   RelaxedAtomic<u16>* clusterUnc,
+                   int                 slot) {
 
     // Preserve the old ttmove if we don't have a new one
     if (m || u16(k) != key16)
@@ -109,6 +179,8 @@ void TTEntry::save(
         genBound8 = u8(curr_generation | b << BOUND_SHIFT | u8(pv) << PV_SHIFT);
         value16   = i16(v);
         eval16    = i16(ev);
+        // Persist the uncertainty alongside this entry, in the cluster's packed word.
+        *clusterUnc = pack_uncertainty(u16(*clusterUnc), slot, quantize_uncertainty(uncertainty));
     }
     // Secondary aging. Important for elementary mate finding.
     // (*Scaler) Secondary aging on entries relevant to singular extensions
@@ -133,12 +205,21 @@ u8 TTEntry::relative_age(const u8 curr_generation) const {
 
 
 // TTWriter is but a very thin wrapper around the pointer
-TTWriter::TTWriter(TTEntry* tte) :
-    entry(tte) {}
+TTWriter::TTWriter(TTEntry* tte, RelaxedAtomic<u16>* unc, int s) :
+    entry(tte),
+    clusterUnc(unc),
+    slot(s) {}
 
-void TTWriter::write(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, u8 curr_generation) {
-    entry->save(k, v, pv, b, d, m, ev, curr_generation);
+void TTWriter::write(Key   k,
+                     Value v,
+                     bool  pv,
+                     Bound b,
+                     Depth d,
+                     Move  m,
+                     Value ev,
+                     Value uncertainty,
+                     u8    curr_generation) {
+    entry->save(k, v, pv, b, d, m, ev, uncertainty, curr_generation, clusterUnc, slot);
 }
 
 void TTWriter::penalize(int penalty) {
@@ -153,11 +234,16 @@ void TTWriter::penalize(int penalty) {
 
 static constexpr int ClusterSize = 3;
 
+// The 2 bytes that upstream leaves as dead padding (3 * 10-byte entries = 30, padded
+// to 32) are repurposed to hold the three entries' 5-bit uncertainty codes (15 of 16
+// bits). The entry stays 10 bytes and the cluster stays 32 bytes, byte-identical to
+// upstream's geometry.
 struct Cluster {
-    TTEntry entry[ClusterSize];
-    char    padding[2];  // Pad to 32 bytes
+    TTEntry            entry[ClusterSize];
+    RelaxedAtomic<u16> uncertainty;  // 3 packed 5-bit codes; was `char padding[2]`
 };
 
+static_assert(sizeof(TTEntry) == 10, "Unexpected TTEntry size");
 static_assert(sizeof(Cluster) == 32, "Suboptimal Cluster size");
 
 
@@ -255,22 +341,33 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
 
     TTEntry* const tte   = first_entry(key);
     const u16      key16 = u16(key);  // Use the low 16 bits as key inside the cluster
+    // tte points at entry[0], the first member of its Cluster, so the cluster (and its
+    // packed uncertainty word) is recoverable by reinterpreting that pointer.
+    Cluster* const cluster = reinterpret_cast<Cluster*>(tte);
 
     for (int i = 0; i < ClusterSize; ++i)
         if (tte[i].key16 == key16)
             // This gap is the main place for read races.
             // After `read()` completes that copy is final, but may be self-inconsistent.
-            return {tte[i].is_occupied(), tte[i].read(), TTWriter(&tte[i])};
+            return {tte[i].is_occupied(),
+                    tte[i].read(dequantize_uncertainty(
+                      unpack_uncertainty(u16(cluster->uncertainty), i))),
+                    TTWriter(&tte[i], &cluster->uncertainty, i)};
 
     // Find an entry to be replaced according to the replacement strategy
-    TTEntry* replace = tte;
+    TTEntry* replace   = tte;
+    int      replaceIdx = 0;
     for (int i = 1; i < ClusterSize; ++i)
         if (replace->depth8 - 8 * replace->relative_age(generation8)
             > tte[i].depth8 - 8 * tte[i].relative_age(generation8))
-            replace = &tte[i];
+        {
+            replace    = &tte[i];
+            replaceIdx = i;
+        }
 
-    return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false},
-            TTWriter(replace)};
+    return {false,
+            TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false, VALUE_NONE},
+            TTWriter(replace, &cluster->uncertainty, replaceIdx)};
 }
 
 

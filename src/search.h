@@ -117,6 +117,11 @@ struct Stack {
     bool                        followPV;
     int                         cutoffCnt;
     int                         reduction;
+    // Auxiliary NNUE uncertainty (overestimate_value - main_value, internal units,
+    // >= 0) for this node. Set at every node (fresh eval or recovered from the TT).
+    // READ-ONLY w.r.t. search decisions: no pruning/extension heuristic consumes it
+    // yet. A future risk-aware consumer would read ss->uncertainty here.
+    Value                       uncertainty;
 };
 
 
@@ -372,6 +377,15 @@ class Worker {
     TimePoint elapsed_time() const;
 
     Value evaluate(const Position&);
+
+    // Single NNUE pass that also returns the overestimate-head uncertainty
+    // (= overestimate_value - main_value, internal units, >= 0) via the out
+    // parameter. One shared feature-transformer/body evaluation + both FC heads.
+    // The returned static eval is identical to evaluate(); uncertainty does NOT
+    // affect any value search uses for decisions. When finalHidden is non-null it
+    // additionally receives the 32 pre-fc_2 activations (the neurons before the
+    // final projection) for passive diagnostics; defaulted nullptr otherwise.
+    Value evaluate(const Position&, Value& uncertainty, std::uint8_t* finalHidden = nullptr);
 
     LimitsType limits;
 

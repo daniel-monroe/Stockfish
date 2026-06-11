@@ -990,10 +990,23 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        // Original (master) futility decision: the classic margin test. ss->futSignal
-        // is still computed and persisted in the TT (see the static-eval block and the
-        // futility head), but it no longer participates in any search decision, so the
-        // search is functionally identical to master.
+        // Trained fc2in futility head (AGGRESSIVE variant of tunefutility): prune more
+        // where the head says the prune is safe. ss->futSignal = deltaInt = acts.w8 (the
+        // 32->1 head over the 32 final-hidden activations) predicts futility-success;
+        // higher => safer => smaller margin => prune. Fit on REALISTIC data on the master
+        // net. Divisor 150 (vs 400 in tunefutility): +1.2pp trigger at held success,
+        // per-depth-consistent and quant-safe offline (scale_robust.py).
+        // Trained fc2in futility head (AGGRESSIVE variant of tunefutility): prune more
+        // where the head says the prune is safe. ss->futSignal = deltaInt = acts.w8 (the
+        // 32->1 head over the 32 final-hidden activations) predicts futility-success;
+        // higher => safer => smaller margin => prune. Fit on REALISTIC data on the master
+        // net. Divisor 200 (vs 400 in tunefutility): ~2x stronger head; offline per-node
+        // trigger +0.95pp and in-engine prune rate +0.79pp at held success (both vs
+        // baseline). Below ~200 the in-engine rate becomes feedback-chaotic, so 200 is
+        // the robust aggressive point where offline and engine agree.
+        if (ss->futSignal != VALUE_NONE)
+            futilityMargin -= (int(ss->futSignal) + 3000) / 200;
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

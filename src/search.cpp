@@ -990,10 +990,15 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        // Original (master) futility decision: the classic margin test. ss->futSignal
-        // is still computed and persisted in the TT (see the static-eval block and the
-        // futility head), but it no longer participates in any search decision, so the
-        // search is functionally identical to master.
+        // Trained per-bucket fc2in futility head (approach B, SINGLE constant center).
+        // ss->futSignal = deltaInt = acts.w8[bucket] (8 distinct 32->1 heads in the net,
+        // common-scaled). One global center/scale (like tunefutility/2): prune a touch
+        // more where the head says it is safe. Calibrated on REALISTIC bucketed data and
+        // validated on a separate val: +1.53pp trigger, success held at every depth
+        // (per-depth gains +0.9..+2.6pp; single_center_calib.py).
+        if (ss->futSignal != VALUE_NONE)
+            futilityMargin -= (int(ss->futSignal) + 1000) / 40;
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

@@ -990,10 +990,16 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        // Original (master) futility decision: the classic margin test. ss->futSignal
-        // is still computed and persisted in the TT (see the static-eval block and the
-        // futility head), but it no longer participates in any search decision, so the
-        // search is functionally identical to master.
+        // Trained fc2in futility head: prune more where the head says the prune is
+        // safe. ss->futSignal = deltaInt = acts.w8 (the 32->1 head over the 32
+        // final-hidden activations) predicts futility-success; higher => safer =>
+        // smaller margin => prune. Fit on REALISTIC (test-time) data on the master
+        // net; raises trigger at held success (+0.47pp, per-depth-consistent, survives
+        // 5-bit TT quant). The +3000/400 operating point was calibrated on held-out
+        // realistic data (deploy_calib.py).
+        if (ss->futSignal != VALUE_NONE)
+            futilityMargin -= (int(ss->futSignal) + 3000) / 400;
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

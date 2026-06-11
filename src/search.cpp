@@ -990,10 +990,19 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        // Original (master) futility decision: the classic margin test. ss->futSignal
-        // is still computed and persisted in the TT (see the static-eval block and the
-        // futility head), but it no longer participates in any search decision, so the
-        // search is functionally identical to master.
+        // Trained PER-BUCKET fc2in futility head (approach B: raise trigger, hold
+        // success at every depth). ss->futSignal = deltaInt = acts.w8[bucket] (8
+        // distinct 32->1 heads in the net, indexed by piece-count bucket; normalized to
+        // a common scale). The per-DEPTH center futCenter[depth] is the honest
+        // operating point that keeps success >= baseline at each depth while pruning
+        // more. Fit on REALISTIC bucketed data; +~1.4pp trigger held-out, worst
+        // per-depth dSucc -0.01pp (fit_calib_perdepth.py).
+        static constexpr int futCenter[18] = {-1269, -1269, -928, -514, -913, -1278,
+                                               -815,  -815,  -815, -815, -815,  -815,
+                                               -815,  -815,  -815, -815, -815,  -815};
+        if (ss->futSignal != VALUE_NONE)
+            futilityMargin -= (int(ss->futSignal) - futCenter[std::min(int(depth), 17)]) / 32;
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

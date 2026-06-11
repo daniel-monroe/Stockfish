@@ -73,8 +73,8 @@ static constexpr u8 PV_MASK         = 1 << PV_SHIFT;
 // VALUE_NONE; codes 1..31 encode 31 evenly-spaced levels spanning the signal's
 // observed range [UNCERTAINTY_OFFSET .. UNCERTAINTY_OFFSET + 30*UNCERTAINTY_SCALE],
 // i.e. about [-32000 .. +16000]; values outside saturate.
-static constexpr int UNCERTAINTY_SCALE   = 846;     // internal units per quantization step
-static constexpr int UNCERTAINTY_OFFSET  = -19458;  // value encoded by the lowest code
+static constexpr int UNCERTAINTY_SCALE   = 497;     // internal units per quantization step
+static constexpr int UNCERTAINTY_OFFSET  = -9443;   // value encoded by the lowest code
 // (calibrated from the realistic-data deltaInt distribution of the fc2in futility
 //  head, p0.5/p99.5; ~0.5% saturation each side; trigger gain survives quantization)
 static constexpr int UNCERTAINTY_MAXLVL  = 30;      // codes 1..31 -> levels 0..30

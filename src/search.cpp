@@ -990,10 +990,15 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        // Original (master) futility decision: the classic margin test. ss->futSignal
-        // is still computed and persisted in the TT (see the static-eval block and the
-        // futility head), but it no longer participates in any search decision, so the
-        // search is functionally identical to master.
+        // Trained per-bucket fc2in futility head (APPROACH A: hold master's prune rate,
+        // re-rank for accuracy). ss->futSignal = deltaInt = acts.w8[bucket]. The center
+        // (+400) is the RATE-PRESERVING point, so this swaps the riskiest prunes for
+        // safer ones at ~the same trigger rather than pruning more. Validated on a
+        // separate val: trigger held (+0.10pp), success up at EVERY depth (+0.10..+0.22pp;
+        // approach_a_calib.py). Low-risk vs the trigger-raising variants.
+        if (ss->futSignal != VALUE_NONE)
+            futilityMargin -= (int(ss->futSignal) + 400) / 60;
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

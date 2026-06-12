@@ -117,10 +117,6 @@ struct Stack {
     bool                        followPV;
     int                         cutoffCnt;
     int                         reduction;
-    // Trained NNUE futility-success signal for this node: the futility head's raw
-    // dot product deltaInt = acts.w8 (pre-scaling integer units, signed), set at
-    // every node (fresh eval or recovered from the TT). Consumed by Step-8 futility
-    // pruning (the logistic gate). VALUE_NONE when not computed (e.g. in check).
     Value                       futSignal;
 };
 
@@ -378,13 +374,7 @@ class Worker {
 
     Value evaluate(const Position&);
 
-    // Single NNUE pass that also returns the trained futility-success signal
-    // (the futility head's dot product deltaInt = acts.w8, pre-scaling integer
-    // units, signed) via the out parameter. One shared feature-transformer/body
-    // evaluation + both FC heads. The returned static eval is identical to
-    // evaluate(). When finalHidden is non-null it additionally receives the 32
-    // pre-fc_2 activations; defaulted nullptr otherwise.
-    Value evaluate(const Position&, Value& futSignal, std::uint8_t* finalHidden = nullptr);
+    Value evaluate(const Position&, Value& futSignal);
 
     LimitsType limits;
 

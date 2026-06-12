@@ -90,10 +90,10 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const int   bnpcv  = shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack;
     const int   cntcv =
       m.is_ok()
-          ? 8363
+        ? 8363
             * ((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()])
-          : 64549;
+        : 64549;
 
     return 13345 * pcv + 9280 * micv + 11840 * (wnpcv + bnpcv) + cntcv;
 }
@@ -134,7 +134,7 @@ Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
+  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
 void update_all_stats(const Position& pos,
                       Stack*          ss,
                       Search::Worker& workerThread,
@@ -290,12 +290,12 @@ bool Search::Worker::iterative_deepening() {
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
-        (ss - i)->futSignal                   = VALUE_NONE;
+        (ss - i)->futSignal                     = VALUE_NONE;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
-        (ss + i)->ply         = i;
+        (ss + i)->ply       = i;
         (ss + i)->futSignal = VALUE_NONE;
     }
 
@@ -564,7 +564,7 @@ bool Search::Worker::iterative_deepening() {
             double fallingEval = (11.87 + 2.21 * (mainThread->bestPreviousAverageScore - bestValue)
                                   + 1.0 * (mainThread->iterValue[iterIdx] - bestValue))
                                / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.572, 1.708);
+            fallingEval        = std::clamp(fallingEval, 0.572, 1.708);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
             timeReduction =
@@ -796,33 +796,21 @@ Value Search::Worker::search(
     // Step 5. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
-    // Auxiliary NNUE futSignal for this node (READ-ONLY for search; see Stack).
-    // VALUE_NONE means "not computed for this node". It is set per-branch below;
-    // crucially it is NOT reset unconditionally here, because the singular-extension
-    // search re-enters with the SAME ss (excludedMove set), and an unconditional
-    // reset would clobber the outer node's already-computed futSignal (which the
-    // outer node later persists to the TT). Like staticEval, excludedMove preserves it.
-
     // Skip early pruning when in check
     if (ss->inCheck)
     {
         ss->staticEval = eval = (ss - 2)->staticEval;
-        ss->futSignal = VALUE_NONE;  // not computed when in check
+        ss->futSignal         = VALUE_NONE;
     }
     else if (excludedMove)
-        // Reuse the outer (singular) node's staticEval AND futSignal; don't reset.
         unadjustedStaticEval = eval = ss->staticEval;
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-        {
-            // Single NNUE pass yields both the static eval and the futSignal.
             unadjustedStaticEval = evaluate(pos, ss->futSignal);
-        }
         else
-            // TT supplied the eval: recover the persisted futSignal too.
             ss->futSignal = ttData.futSignal;
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
@@ -834,7 +822,6 @@ Value Search::Worker::search(
     }
     else
     {
-        // Single NNUE pass yields both the static eval and the futSignal.
         unadjustedStaticEval = evaluate(pos, ss->futSignal);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -986,16 +973,11 @@ Value Search::Worker::search(
     {
         Value futilityMult = interpolate(std::min(int(depth), 10), 1, 10, 40, 80);
         futilityMult -= 20 * !ss->ttHit;
+
         Value futilityMargin = futilityMult * depth
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        // Trained per-bucket fc2in futility head (APPROACH A: hold master's prune rate,
-        // re-rank for accuracy). ss->futSignal = deltaInt = acts.w8[bucket]. The center
-        // (+400) is the RATE-PRESERVING point, so this swaps the riskiest prunes for
-        // safer ones at ~the same trigger rather than pruning more. Validated on a
-        // separate val: trigger held (+0.10pp), success up at EVERY depth (+0.10..+0.22pp;
-        // approach_a_calib.py). Low-risk vs the trigger-raising variants.
         if (ss->futSignal != VALUE_NONE)
             futilityMargin -= (int(ss->futSignal) + 400) / 60;
 
@@ -1675,8 +1657,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
-    // Auxiliary NNUE futSignal for this node (READ-ONLY for search; see Stack).
-    // VALUE_NONE means "not computed for this node" (e.g. in check / no eval).
     ss->futSignal = VALUE_NONE;
 
     if (ss->inCheck)
@@ -1691,10 +1671,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             unadjustedStaticEval = ttData.eval;
 
             if (!is_valid(unadjustedStaticEval))
-                // Single NNUE pass yields both the static eval and the futSignal.
                 unadjustedStaticEval = evaluate(pos, ss->futSignal);
             else
-                // TT supplied the eval: recover the persisted futSignal too.
                 ss->futSignal = ttData.futSignal;
 
             ss->staticEval = bestValue =
@@ -1707,7 +1685,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            // Single NNUE pass yields both the static eval and the futSignal.
             unadjustedStaticEval = evaluate(pos, ss->futSignal);
             ss->staticEval       = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
@@ -1721,8 +1698,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
             if (!ss->ttHit)
                 ttWriter.write(posKey, VALUE_NONE, false, BOUND_LOWER, DEPTH_UNSEARCHED,
-                               Move::none(), unadjustedStaticEval, ss->futSignal,
-                               tt.generation());
+                               Move::none(), unadjustedStaticEval, ss->futSignal, tt.generation());
             return bestValue;
         }
 
@@ -1879,15 +1855,9 @@ Value Search::Worker::evaluate(const Position& pos) {
                           optimism[pos.side_to_move()]);
 }
 
-// Single NNUE pass (shared feature transformer / body, both FC heads) returning
-// the static eval and, via `futSignal`, the trained futility-success signal
-// (the futility head's raw dot product acts.w8 over the 32 final-hidden
-// activations, pre-scaling integer units). The signal is SIGNED and not clamped.
-// The static eval is identical to evaluate(); the signal is read into
-// ss->futSignal, persisted in the TT, and consumed only by Step-8 futility.
-Value Search::Worker::evaluate(const Position& pos, Value& futSignal, std::uint8_t* finalHidden) {
+Value Search::Worker::evaluate(const Position& pos, Value& futSignal) {
     return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
-                          optimism[pos.side_to_move()], futSignal, finalHidden);
+                          optimism[pos.side_to_move()], futSignal);
 }
 
 namespace {

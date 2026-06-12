@@ -19,7 +19,6 @@
 #ifndef EVALUATE_H_INCLUDED
 #define EVALUATE_H_INCLUDED
 
-#include <cstdint>
 #include <string>
 
 #include "types.h"
@@ -50,20 +49,12 @@ Value evaluate(const NNUE::Network&           network,
                Eval::NNUE::AccumulatorCaches& caches,
                int                            optimism);
 
-// Same as evaluate(), but in a SINGLE NNUE pass (one feature-transformer /
-// body evaluation shared by both heads) it also returns the overestimate-head
-// futSignal (= overestimate_value - main_value, internal units, >= 0) via
-// `futSignal`. The returned static eval is identical to evaluate().
 Value evaluate(const NNUE::Network&           network,
                const Position&                pos,
                Eval::NNUE::AccumulatorStack&  accumulators,
                Eval::NNUE::AccumulatorCaches& caches,
                int                            optimism,
-               Value&                         futSignal,
-               // Optional out: when non-null, receives the 32 final-hidden
-               // activations (the neurons before the final fc_2 projection).
-               // Defaulted nullptr so ordinary callers pay nothing.
-               std::uint8_t*                  finalHidden = nullptr);
+               Value&                         futSignal);
 }  // namespace Eval
 
 }  // namespace Stockfish

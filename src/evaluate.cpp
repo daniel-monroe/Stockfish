@@ -22,7 +22,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -37,13 +36,8 @@
 
 namespace Stockfish {
 
-// Evaluate is the evaluator for the outer world. It returns a static evaluation
-// of the position from the point of view of the side to move.
 namespace {
 
-// Shared scaling: turn the raw NNUE (psqt, positional) outputs into the final
-// static evaluation. Factored out so the plain and dual-head entry points
-// produce a byte-identical static eval.
 Value scale_nnue_eval(Value psqt, Value positional, int optimism, const Position& pos) {
 
     Value nnue = (125 * psqt + 131 * positional) / 128;
@@ -65,6 +59,8 @@ Value scale_nnue_eval(Value psqt, Value positional, int optimism, const Position
 
 }  // namespace
 
+// Evaluate is the evaluator for the outer world. It returns a static evaluation
+// of the position from the point of view of the side to move.
 Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
@@ -77,32 +73,18 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     return scale_nnue_eval(psqt, positional, optimism, pos);
 }
 
-// Single-pass variant: one feature-transformer/body evaluation, both FC heads.
-// Returns the same static eval as evaluate() and also the futSignal.
 Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
                      Eval::NNUE::AccumulatorCaches& caches,
                      int                            optimism,
-                     Value&                         futSignal,
-                     std::uint8_t*                  finalHidden) {
+                     Value&                         futSignal) {
 
     assert(!pos.checkers());
 
     const auto dual = network.evaluate_dual(pos, accumulators, caches);
-
-    // Diagnostic plumbing: hand the 32 pre-fc_2 activations back to the caller.
-    if (finalHidden != nullptr)
-        std::memcpy(finalHidden, dual.finalHidden.data(), dual.finalHidden.size());
-
-    const Value mainV = scale_nnue_eval(dual.psqt, dual.mainPositional, optimism, pos);
-
-    // The auxiliary head now carries the trained FUTILITY-SUCCESS signal: the raw
-    // dot product acts.w8 over the 32 final-hidden activations (pre-scaling integer
-    // units, signed). This is consumed by Step-8 futility pruning in search.cpp. It
-    // is NOT the old over/under eval-space futSignal and is NOT clamped here.
-    futSignal = static_cast<Value>(dual.delta);
-    return mainV;
+    futSignal       = static_cast<Value>(dual.delta);
+    return scale_nnue_eval(dual.psqt, dual.mainPositional, optimism, pos);
 }
 
 // Like evaluate(), but instead of returning a value, it returns
@@ -123,18 +105,11 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Network& network) {
 
     ss << std::showpoint << std::showpos << std::fixed << std::setprecision(2) << std::setw(15);
 
-    auto  dual          = network.evaluate_dual(pos, *accumulators, *caches);
-    Value mainValue     = dual.psqt + dual.mainPositional;
-    Value v             = mainValue;
+    auto [psqt, positional] = network.evaluate(pos, *accumulators, *caches);
+    Value v                 = psqt + positional;
     ss << "NNUE evaluation          " << v << " (side to move, internal units)\n";
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
-
-    // Auxiliary futility head: the raw linear-combination signal acts.w8 (the trained
-    // futility-success projection), in pre-scaling integer units. Not an eval — it is
-    // consumed only by Step-8 futility pruning.
-    ss << "NNUE futility signal   " << dual.delta << " (acts.w8, internal units)"
-       << (network.has_overestimate() ? "" : " [futility head not loaded]") << '\n';
 
     v = evaluate(network, pos, *accumulators, *caches, VALUE_ZERO);
     v = pos.side_to_move() == WHITE ? v : -v;

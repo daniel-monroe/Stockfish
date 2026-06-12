@@ -137,14 +137,6 @@ Engine::Engine(std::optional<std::string> path) :
           return std::nullopt;
       }));
 
-    // Path to the overestimate / uncertainty net (same FT, second FC head).
-    // Empty disables the head (uncertainty == 0; eval unchanged).
-    options.add(  //
-      "EvalFileOverestimate", Option("", [this](const Option& o) {
-          load_overestimate_network(o);
-          return std::nullopt;
-      }));
-
     threads.clear();
     threads.ensure_network_replicated();
     resize_threads();
@@ -309,13 +301,6 @@ std::unique_ptr<Eval::NNUE::Network> Engine::get_default_network() const {
 void Engine::load_network(const std::string& file) {
     network.modify_and_replicate(
       [this, &file](NN::Network& network_) { network_.load(binaryDirectory, file); });
-    threads.clear();
-    threads.ensure_network_replicated();
-}
-
-void Engine::load_overestimate_network(const std::string& file) {
-    network.modify_and_replicate(
-      [this, &file](NN::Network& network_) { network_.load_overestimate(binaryDirectory, file); });
     threads.clear();
     threads.ensure_network_replicated();
 }

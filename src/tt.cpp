@@ -59,28 +59,8 @@ static constexpr u8 BOUND_MASK      = 0b11 << BOUND_SHIFT;
 static constexpr u8 PV_SHIFT        = BOUND_SHIFT + 2;
 static constexpr u8 PV_MASK         = 1 << PV_SHIFT;
 
-static constexpr int UNCERTAINTY_SCALE  = 497;
-static constexpr int UNCERTAINTY_OFFSET = -9443;
-static constexpr int UNCERTAINTY_MAXLVL = 30;
-static constexpr u16 UNCERTAINTY_BITS   = 5;
-static constexpr u16 UNCERTAINTY_FIELD  = (1u << UNCERTAINTY_BITS) - 1;
-
-static u8 quantize_futSignal(Value futSignal) {
-    if (futSignal == VALUE_NONE)
-        return 0;
-    int lvl = (int(futSignal) - UNCERTAINTY_OFFSET + UNCERTAINTY_SCALE / 2) / UNCERTAINTY_SCALE;
-    if (lvl < 0)
-        lvl = 0;
-    if (lvl > UNCERTAINTY_MAXLVL)
-        lvl = UNCERTAINTY_MAXLVL;
-    return u8(lvl + 1);
-}
-
-static Value dequantize_futSignal(u8 code) {
-    if (code == 0)
-        return VALUE_NONE;
-    return Value(UNCERTAINTY_OFFSET + (int(code) - 1) * UNCERTAINTY_SCALE);
-}
+static constexpr u16 UNCERTAINTY_BITS  = 5;
+static constexpr u16 UNCERTAINTY_FIELD = (1u << UNCERTAINTY_BITS) - 1;
 
 static u8 unpack_futSignal(u16 packed, int slot) {
     return u8((packed >> (UNCERTAINTY_BITS * slot)) & UNCERTAINTY_FIELD);
@@ -159,9 +139,12 @@ void TTEntry::save(Key                 k,
         key16       = u16(k);
         depth8      = u8(d - DEPTH_NONE);
         genBound8   = u8(curr_generation | b << BOUND_SHIFT | u8(pv) << PV_SHIFT);
-        value16     = i16(v);
-        eval16      = i16(ev);
-        *clusterUnc = pack_futSignal(u16(*clusterUnc), slot, quantize_futSignal(futSignal));
+        value16 = i16(v);
+        eval16  = i16(ev);
+        const u8  newCode = u8(futSignal);
+        const u16 packed  = u16(*clusterUnc);
+        if (unpack_futSignal(packed, slot) != newCode)
+            *clusterUnc = pack_futSignal(packed, slot, newCode);
     }
     // Secondary aging. Important for elementary mate finding.
     // (*Scaler) Secondary aging on entries relevant to singular extensions
@@ -325,7 +308,7 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
             // This gap is the main place for read races.
             // After `read()` completes that copy is final, but may be self-inconsistent.
             return {tte[i].is_occupied(),
-                    tte[i].read(dequantize_futSignal(unpack_futSignal(u16(cluster->futSignal), i))),
+                    tte[i].read(Value(unpack_futSignal(u16(cluster->futSignal), i))),
                     TTWriter(&tte[i], &cluster->futSignal, i)};
 
     // Find an entry to be replaced according to the replacement strategy
@@ -340,7 +323,7 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
         }
 
     return {false,
-            TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false, VALUE_NONE},
+            TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false, Value(0)},
             TTWriter(replace, &cluster->futSignal, replaceIdx)};
 }
 

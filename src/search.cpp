@@ -71,6 +71,23 @@ constexpr u64 NODES_LIMIT_OUTPUT = 10'000'000;
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 
+constexpr int UNCERTAINTY_SHIFT  = 9;
+constexpr int UNCERTAINTY_SCALE  = 1 << UNCERTAINTY_SHIFT;
+constexpr int UNCERTAINTY_OFFSET = -9443;
+constexpr int UNCERTAINTY_MAXLVL = 30;
+
+int quantize_futSignal(Value rawDelta) {
+    int d = int(rawDelta) - UNCERTAINTY_OFFSET + UNCERTAINTY_SCALE / 2;
+    if (d < 0)
+        d = 0;
+    int lvl = d >> UNCERTAINTY_SHIFT;
+    if (lvl > UNCERTAINTY_MAXLVL)
+        lvl = UNCERTAINTY_MAXLVL;
+    return lvl + 1;
+}
+
+int dequantize_futSignal(int code) { return UNCERTAINTY_OFFSET + ((code - 1) << UNCERTAINTY_SHIFT); }
+
 // (*Scalers):
 // The values with Scaler asterisks have proven non-linear scaling.
 // They are optimized to time controls of 180 + 1.8 and longer,
@@ -290,13 +307,13 @@ bool Search::Worker::iterative_deepening() {
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
-        (ss - i)->futSignal                     = VALUE_NONE;
+        (ss - i)->futSignal                     = 0;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
         (ss + i)->ply       = i;
-        (ss + i)->futSignal = VALUE_NONE;
+        (ss + i)->futSignal = 0;
     }
 
     ss->pv = &pv;
@@ -800,7 +817,7 @@ Value Search::Worker::search(
     if (ss->inCheck)
     {
         ss->staticEval = eval = (ss - 2)->staticEval;
-        ss->futSignal         = VALUE_NONE;
+        ss->futSignal         = 0;
     }
     else if (excludedMove)
         unadjustedStaticEval = eval = ss->staticEval;
@@ -978,8 +995,8 @@ Value Search::Worker::search(
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
 
-        if (ss->futSignal != VALUE_NONE)
-            futilityMargin -= (int(ss->futSignal) + 400) / 60;
+        if (ss->futSignal)
+            futilityMargin -= (dequantize_futSignal(int(ss->futSignal)) + 400) / 60;
 
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
@@ -1657,7 +1674,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
-    ss->futSignal = VALUE_NONE;
+    ss->futSignal = 0;
 
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
@@ -1856,8 +1873,10 @@ Value Search::Worker::evaluate(const Position& pos) {
 }
 
 Value Search::Worker::evaluate(const Position& pos, Value& futSignal) {
-    return Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
-                          optimism[pos.side_to_move()], futSignal);
+    const Value v = Eval::evaluate(network[numaAccessToken], pos, accumulatorStack, refreshTable,
+                                   optimism[pos.side_to_move()], futSignal);
+    futSignal     = quantize_futSignal(futSignal);
+    return v;
 }
 
 namespace {

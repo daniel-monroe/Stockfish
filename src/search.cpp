@@ -996,7 +996,7 @@ Value Search::Worker::search(
                              + std::abs(correctionValue) / 182069;
 
         if (ss->futSignal)
-            futilityMargin -= (dequantize_futSignal(int(ss->futSignal)) + 400) / 60;
+            futilityMargin -= (dequantize_futSignal(int(ss->futSignal)) + 400) / 32;
 
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;

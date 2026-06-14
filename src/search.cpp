@@ -994,7 +994,7 @@ Value Search::Worker::search(
         Value futilityMargin = futilityMult * depth
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
-                             
+
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }
@@ -1308,6 +1308,11 @@ moves_loop:  // When in check, search starts here
         r += 714;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 62;
         r -= std::abs(correctionValue) / 26131;
+
+        
+        if (ss->futSignal)
+            r -= (dequantize_futSignal(int(ss->futSignal)) + 400) / 8;
+
 
         // Increase reduction for cut nodes
         if (cutNode)

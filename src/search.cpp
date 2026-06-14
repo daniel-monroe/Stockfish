@@ -994,10 +994,7 @@ Value Search::Worker::search(
         Value futilityMargin = futilityMult * depth
                              - (2934 * improving + 343 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 182069;
-
-        if (ss->futSignal)
-            futilityMargin -= (dequantize_futSignal(int(ss->futSignal)) + 400) / 32;
-
+                             
         if (eval - futilityMargin >= beta)
             return (716 * beta + 308 * eval) / 1024;
     }

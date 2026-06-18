@@ -20,6 +20,8 @@
 
 #include "full_threats.h"
 
+#include "pruned_threats.h"
+
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -205,12 +207,29 @@ inline sf_always_inline IndexType FullThreats::make_index(
          + index_lut2[attacker_oriented][from_oriented][to_oriented];
 }
 
+// Fast lookup of pruned threat features (see pruned_threats.h). These features are
+// excluded from accumulator updates -> their contribution is dropped and their
+// add/remove update work is skipped. Size Dimensions+1 so the "excluded" sentinel
+// index (== Dimensions) is always false and still handled by push_back_if_lt.
+namespace {
+const std::array<bool, FullThreats::Dimensions + 1>& pruned_threat_mask() {
+    static const std::array<bool, FullThreats::Dimensions + 1> mask = [] {
+        std::array<bool, FullThreats::Dimensions + 1> a{};
+        for (std::uint16_t idx : PRUNED_THREAT_INDICES)
+            a[idx] = true;
+        return a;
+    }();
+    return mask;
+}
+}  // namespace
+
 // Get a list of indices for active features in ascending order
 
 void FullThreats::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
     const Square   ksq      = pos.square<KING>(perspective);
     const Bitboard occupied = pos.pieces();
     const Bitboard pawns    = pos.pieces(PAWN);
+    const auto&    pruned   = pruned_threat_mask();
 
     for (Color color : {WHITE, BLACK})
     {
@@ -230,7 +249,8 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
                     Piece  attacked = pos.piece_on(to);
                     assert(file_of(from) != file_of(to) || type_of(attacked) == PAWN);
                     IndexType index = make_index(perspective, attacker, from, to, attacked, ksq);
-                    active.push_back_if_lt(index, Dimensions);
+                    if (!pruned[index])
+                        active.push_back_if_lt(index, Dimensions);
                 }
             };
 
@@ -261,7 +281,8 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
                     Square    to       = pop_lsb(attacks);
                     Piece     attacked = pos.piece_on(to);
                     IndexType index    = make_index(perspective, attacker, from, to, attacked, ksq);
-                    active.push_back_if_lt(index, Dimensions);
+                    if (!pruned[index])
+                        active.push_back_if_lt(index, Dimensions);
                 }
             }
         }
@@ -278,6 +299,8 @@ void FullThreats::append_changed_indices(Color                   perspective,
                                          const ThreatWeightType* prefetchBase,
                                          IndexType               prefetchStride) {
 
+    const auto& pruned = pruned_threat_mask();
+
     for (const auto& dirty : diff.list)
     {
         auto attacker = dirty.pc();
@@ -288,6 +311,9 @@ void FullThreats::append_changed_indices(Color                   perspective,
 
         auto&           insert = add ? added : removed;
         const IndexType index  = make_index(perspective, attacker, from, to, attacked, ksq);
+
+        if (pruned[index])
+            continue;  // pruned threat: skip add/remove update (and its prefetch)
 
         if (prefetchBase)
             prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(

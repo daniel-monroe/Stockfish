@@ -639,6 +639,8 @@ void Search::Worker::do_move(
 
     auto [dirtyPiece, dirtyThreats] = accumulatorStack.push();
     pos.do_move(move, st, givesCheck, dirtyPiece, dirtyThreats, &tt, &sharedHistory);
+    // `pos` is now the position after the move: record this state's pawn-structure diff.
+    accumulatorStack.set_pawn_dirty(pos);
 
     if (ss != nullptr)
     {

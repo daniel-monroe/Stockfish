@@ -55,6 +55,20 @@ const AccumulatorState& AccumulatorStack::latest() const noexcept { return accum
 
 AccumulatorState& AccumulatorStack::mut_latest() noexcept { return accumulators[size - 1]; }
 
+void AccumulatorStack::set_pawn_dirty(const Position& pos) noexcept {
+    // Perspective-symmetric: compute once. `pos` is the position after this state's move,
+    // so PawnStruct::append_changed_indices reconstructs the correct before/after here.
+    AccumulatorState&         st = mut_latest();
+    PawnFeatureSet::IndexList removed, added;
+    PawnFeatureSet::append_changed_indices(WHITE, pos, st.dirtyPiece, removed, added);
+    st.pawnNRemoved = removed.ssize();
+    st.pawnNAdded   = added.ssize();
+    for (int i = 0; i < st.pawnNRemoved; ++i)
+        st.pawnRemoved[i] = removed[i];
+    for (int i = 0; i < st.pawnNAdded; ++i)
+        st.pawnAdded[i] = added[i];
+}
+
 void AccumulatorStack::reset() noexcept {
     accumulators[0].dirtyPiece = {};
     new (&accumulators[0].dirtyThreats) DirtyThreats;
@@ -414,6 +428,7 @@ void update_accumulator_incremental(Color                     perspective,
 
     assert(computed.computed[perspective]);
     assert(!target_state.computed[perspective]);
+    (void) pos;  // pawn diff is now precomputed per state; chain no longer uses the leaf position
 
     // The size must be enough to contain the largest possible update.
     // That might depend on the feature set and generally relies on the
@@ -429,19 +444,30 @@ void update_accumulator_incremental(Color                     perspective,
     const auto* pfBase   = &featureTransformer.threatWeights[0];
     IndexType   pfStride = FeatureTransformer::OutputDimensions;
 
+    // Pawn diff is precomputed per state at do_move (set_pawn_dirty); replay it here so the
+    // chain never depends on the leaf `pos` (which is wrong for multi-step / backward updates).
+    // Forward applies target_state's diff as-is; backward undoes computed's diff (swap add/remove).
+    const AccumulatorState& pawnDiffState = Forward ? target_state : computed;
+
     if constexpr (Forward)
     {
         ThreatFeatureSet::append_changed_indices(perspective, ksq, dirtyThreats, thrRemoved,
                                                  thrAdded, pfBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqRemoved, psqAdded);
-        PawnFeatureSet::append_changed_indices(perspective, pos, dirtyPiece, pawnRemoved, pawnAdded);
+        for (int i = 0; i < pawnDiffState.pawnNRemoved; ++i)
+            pawnRemoved.push_back(IndexType(pawnDiffState.pawnRemoved[i]));
+        for (int i = 0; i < pawnDiffState.pawnNAdded; ++i)
+            pawnAdded.push_back(IndexType(pawnDiffState.pawnAdded[i]));
     }
     else
     {
         ThreatFeatureSet::append_changed_indices(perspective, ksq, dirtyThreats, thrAdded,
                                                  thrRemoved, pfBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqAdded, psqRemoved);
-        PawnFeatureSet::append_changed_indices(perspective, pos, dirtyPiece, pawnAdded, pawnRemoved);
+        for (int i = 0; i < pawnDiffState.pawnNAdded; ++i)
+            pawnRemoved.push_back(IndexType(pawnDiffState.pawnAdded[i]));
+        for (int i = 0; i < pawnDiffState.pawnNRemoved; ++i)
+            pawnAdded.push_back(IndexType(pawnDiffState.pawnRemoved[i]));
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,

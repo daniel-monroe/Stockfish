@@ -93,6 +93,12 @@ struct AccumulatorCaches {
 struct AccumulatorState: public Accumulator {
     DirtyPiece   dirtyPiece;
     DirtyThreats dirtyThreats;
+    // Pawn-structure feature diff for the move INTO this state (perspective-symmetric).
+    // Absolute pawn feature indices; before-move pawn feature(s) -> pawnRemoved,
+    // after-move -> pawnAdded. Computed once at do_move (with that move's correct
+    // position), so the incremental chain never needs the (leaf) position. <=2 per side.
+    std::array<int, 2> pawnRemoved{}, pawnAdded{};
+    int                pawnNRemoved = 0, pawnNAdded = 0;
 };
 
 class AccumulatorStack {
@@ -104,6 +110,10 @@ class AccumulatorStack {
     void                                  reset() noexcept;
     std::pair<DirtyPiece&, DirtyThreats&> push() noexcept;
     void                                  pop() noexcept;
+
+    // Compute & store the pawn-structure feature diff for the just-pushed state,
+    // using `pos` (the position AFTER the move) so it is correct per state.
+    void set_pawn_dirty(const Position& pos) noexcept;
 
     void evaluate(const Position&           pos,
                   const FeatureTransformer& featureTransformer,

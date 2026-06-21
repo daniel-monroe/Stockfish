@@ -39,6 +39,7 @@ namespace {
 template<bool Forward>
 void update_accumulator_incremental(Color                     perspective,
                                     const FeatureTransformer& featureTransformer,
+                                    const Position&           pos,
                                     const Square              ksq,
                                     AccumulatorState&         target_state,
                                     const AccumulatorState&   computed);
@@ -129,7 +130,7 @@ void AccumulatorStack::forward_update_incremental(Color                     pers
     const Square ksq = pos.square<KING>(perspective);
 
     for (usize next = begin + 1; next < size; next++)
-        update_accumulator_incremental<true>(perspective, featureTransformer, ksq,
+        update_accumulator_incremental<true>(perspective, featureTransformer, pos, ksq,
                                              accumulators[next], accumulators[next - 1]);
 
     assert(latest().computed[perspective]);
@@ -147,7 +148,7 @@ void AccumulatorStack::backward_update_incremental(Color                     per
     const Square ksq = pos.square<KING>(perspective);
 
     for (i64 next = i64(size) - 2; next >= i64(end); next--)
-        update_accumulator_incremental<false>(perspective, featureTransformer, ksq,
+        update_accumulator_incremental<false>(perspective, featureTransformer, pos, ksq,
                                               accumulators[next], accumulators[next + 1]);
 
     assert(accumulators[end].computed[perspective]);
@@ -162,7 +163,9 @@ void apply_combined(Color                              perspective,
                     const PSQFeatureSet::IndexList&    psqAdded,
                     const PSQFeatureSet::IndexList&    psqRemoved,
                     const ThreatFeatureSet::IndexList& thrAdded,
-                    const ThreatFeatureSet::IndexList& thrRemoved) {
+                    const ThreatFeatureSet::IndexList& thrRemoved,
+                    const PawnFeatureSet::IndexList&   pawnAdded,
+                    const PawnFeatureSet::IndexList&   pawnRemoved) {
     constexpr IndexType Dimensions = FeatureTransformer::OutputDimensions;
 
     const auto& fromAcc = from.accumulation[perspective];
@@ -179,6 +182,7 @@ void apply_combined(Color                              perspective,
 
     const auto* psqWeights    = &featureTransformer.weights[0];
     const auto* threatWeights = &featureTransformer.threatWeights[0];
+    const auto* pawnWeights    = &featureTransformer.pawnWeights[0];
 
     for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
     {
@@ -239,6 +243,40 @@ void apply_combined(Color                              perspective,
     #endif
         }
 
+        for (int i = 0; i < pawnRemoved.ssize(); ++i)
+        {
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &pawnWeights[pawnRemoved[i] * Dimensions + tileOff]);
+
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vsubw_s8(acc[k], vget_low_s8(column[k / 2]));
+                acc[k + 1] = vsubw_high_s8(acc[k + 1], column[k / 2]);
+            }
+    #else
+            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
+        }
+
+        for (int i = 0; i < pawnAdded.ssize(); ++i)
+        {
+            auto* column =
+              reinterpret_cast<const vec_i8_t*>(&pawnWeights[pawnAdded[i] * Dimensions + tileOff]);
+
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
+                acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
+            }
+    #else
+            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
+        }
+
         for (IndexType k = 0; k < Tiling::NumRegs; k++)
             vec_store(&toTile[k], acc[k]);
     }
@@ -280,6 +318,22 @@ void apply_combined(Color                              perspective,
         {
             auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
               &featureTransformer.threatPsqtWeights[thrAdded[i] * PSQTBuckets + psqtTileOff]);
+            for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
+                psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
+        }
+
+        for (int i = 0; i < pawnRemoved.ssize(); ++i)
+        {
+            auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
+              &featureTransformer.pawnPsqtWeights[pawnRemoved[i] * PSQTBuckets + psqtTileOff]);
+            for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
+                psqt[k] = vec_sub_psqt_32(psqt[k], columnPsqt[k]);
+        }
+
+        for (int i = 0; i < pawnAdded.ssize(); ++i)
+        {
+            auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
+              &featureTransformer.pawnPsqtWeights[pawnAdded[i] * PSQTBuckets + psqtTileOff]);
             for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
                 psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
         }
@@ -329,12 +383,31 @@ void apply_combined(Color                              perspective,
             toPsqtAcc[k] += featureTransformer.threatPsqtWeights[index * PSQTBuckets + k];
     }
 
+    for (const auto index : pawnRemoved)
+    {
+        const IndexType offset = Dimensions * index;
+        for (IndexType j = 0; j < Dimensions; ++j)
+            toAcc[j] -= featureTransformer.pawnWeights[offset + j];
+        for (usize k = 0; k < PSQTBuckets; ++k)
+            toPsqtAcc[k] -= featureTransformer.pawnPsqtWeights[index * PSQTBuckets + k];
+    }
+
+    for (const auto index : pawnAdded)
+    {
+        const IndexType offset = Dimensions * index;
+        for (IndexType j = 0; j < Dimensions; ++j)
+            toAcc[j] += featureTransformer.pawnWeights[offset + j];
+        for (usize k = 0; k < PSQTBuckets; ++k)
+            toPsqtAcc[k] += featureTransformer.pawnPsqtWeights[index * PSQTBuckets + k];
+    }
+
 #endif
 }
 
 template<bool Forward>
 void update_accumulator_incremental(Color                     perspective,
                                     const FeatureTransformer& featureTransformer,
+                                    const Position&           pos,
                                     const Square              ksq,
                                     AccumulatorState&         target_state,
                                     const AccumulatorState&   computed) {
@@ -348,6 +421,7 @@ void update_accumulator_incremental(Color                     perspective,
     // updates with more added/removed features than MaxActiveDimensions.
     PSQFeatureSet::IndexList    psqRemoved, psqAdded;
     ThreatFeatureSet::IndexList thrRemoved, thrAdded;
+    PawnFeatureSet::IndexList   pawnRemoved, pawnAdded;
 
     const auto& dirtyPiece   = Forward ? target_state.dirtyPiece : computed.dirtyPiece;
     const auto& dirtyThreats = Forward ? target_state.dirtyThreats : computed.dirtyThreats;
@@ -360,16 +434,18 @@ void update_accumulator_incremental(Color                     perspective,
         ThreatFeatureSet::append_changed_indices(perspective, ksq, dirtyThreats, thrRemoved,
                                                  thrAdded, pfBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqRemoved, psqAdded);
+        PawnFeatureSet::append_changed_indices(perspective, pos, dirtyPiece, pawnRemoved, pawnAdded);
     }
     else
     {
         ThreatFeatureSet::append_changed_indices(perspective, ksq, dirtyThreats, thrAdded,
                                                  thrRemoved, pfBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqAdded, psqRemoved);
+        PawnFeatureSet::append_changed_indices(perspective, pos, dirtyPiece, pawnAdded, pawnRemoved);
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,
-                   thrAdded, thrRemoved);
+                   thrAdded, thrRemoved, pawnAdded, pawnRemoved);
 
     target_state.computed[perspective] = true;
 }
@@ -499,6 +575,9 @@ void update_accumulator_refresh_cache(Color                     perspective,
     ThreatFeatureSet::IndexList active;
     ThreatFeatureSet::append_active_indices(perspective, pos, active);
 
+    PawnFeatureSet::IndexList pawnActive;
+    PawnFeatureSet::append_active_indices(perspective, pos, pawnActive);
+
     accumulator.computed[perspective] = true;
 
 #ifdef VECTOR
@@ -507,6 +586,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     const auto* weights       = &featureTransformer.weights[0];
     const auto* threatWeights = &featureTransformer.threatWeights[0];
+    const auto* pawnWeights    = &featureTransformer.pawnWeights[0];
 
     for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
     {
@@ -539,6 +619,23 @@ void update_accumulator_refresh_cache(Color                     perspective,
         {
             auto* column =
               reinterpret_cast<const vec_i8_t*>(&threatWeights[active[i] * Dimensions + tileOff]);
+
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
+                acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
+            }
+    #else
+            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
+        }
+
+        for (int i = 0; i < pawnActive.ssize(); ++i)
+        {
+            auto* column =
+              reinterpret_cast<const vec_i8_t*>(&pawnWeights[pawnActive[i] * Dimensions + tileOff]);
 
     #ifdef USE_NEON
             for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
@@ -592,6 +689,14 @@ void update_accumulator_refresh_cache(Color                     perspective,
                 psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
         }
 
+        for (int i = 0; i < pawnActive.ssize(); ++i)
+        {
+            auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
+              &featureTransformer.pawnPsqtWeights[pawnActive[i] * PSQTBuckets + psqtTileOff]);
+            for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
+                psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
+        }
+
         for (IndexType k = 0; k < Tiling::NumPsqtRegs; ++k)
             vec_store_psqt(&accTilePsqt[k], psqt[k]);
     }
@@ -633,6 +738,18 @@ void update_accumulator_refresh_cache(Color                     perspective,
         for (usize k = 0; k < PSQTBuckets; ++k)
             accumulator.psqtAccumulation[perspective][k] +=
               featureTransformer.threatPsqtWeights[index * PSQTBuckets + k];
+    }
+
+    for (const auto index : pawnActive)
+    {
+        const IndexType offset = Dimensions * index;
+
+        for (IndexType j = 0; j < Dimensions; ++j)
+            accumulator.accumulation[perspective][j] += featureTransformer.pawnWeights[offset + j];
+
+        for (usize k = 0; k < PSQTBuckets; ++k)
+            accumulator.psqtAccumulation[perspective][k] +=
+              featureTransformer.pawnPsqtWeights[index * PSQTBuckets + k];
     }
 
 #endif

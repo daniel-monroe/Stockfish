@@ -22,6 +22,7 @@
 
 #include "pawn_vocab.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <unordered_map>
 
@@ -54,16 +55,28 @@ inline Key canon(std::uint64_t w, std::uint64_t b) {
 
 using Map = std::unordered_map<Key, int, KeyHash>;
 
-const Map& build_map(const std::uint64_t (*vocab)[2], std::size_t n) {
-    static Map left, right;
-    Map& m = (vocab == PAWN_VOCAB_LEFT) ? left : right;
-    if (m.empty())
-    {
-        m.reserve(n * 2);
-        for (std::size_t i = 0; i < n; ++i)
-            m[{vocab[i][0], vocab[i][1]}] = int(i);
-    }
+Map make_map(const std::uint64_t (*vocab)[2], std::size_t n) {
+    Map m;
+    m.reserve(n * 2);
+    for (std::size_t i = 0; i < n; ++i)
+        m[{vocab[i][0], vocab[i][1]}] = int(i);
     return m;
+}
+
+const Map& build_map(const std::uint64_t (*vocab)[2], std::size_t n) {
+    // Build each half-board's vocabulary map exactly once, the first time it is
+    // needed. Function-local statics are initialized in a thread-safe manner
+    // ([stmt.dcl]/4): concurrent search threads that reach this point block until
+    // the single initializing thread finishes, so the map can never be observed
+    // half-built. (The previous lazy `if (m.empty()) fill` had a data race that
+    // corrupted the map under multi-threaded search.)
+    if (vocab == PAWN_VOCAB_LEFT)
+    {
+        static const Map left = make_map(PAWN_VOCAB_LEFT, n);
+        return left;
+    }
+    static const Map right = make_map(PAWN_VOCAB_RIGHT, n);
+    return right;
 }
 
 }  // namespace

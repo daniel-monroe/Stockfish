@@ -58,12 +58,15 @@ void Tune::make_option(OptionsMap* opts, const string& n, int v, const SetRange&
     opts->add(n, Option(v, r(v).first, r(v).second, on_tune));
     LastOption = &((*opts)[n]);
 
-    // Print formatted parameters, ready to be copy-pasted in Fishtest
-    std::cout << n << ","                                  //
-              << v << ","                                  //
-              << r(v).first << ","                         //
-              << r(v).second << ","                        //
-              << (r(v).second - r(v).first) / 20.0 << ","  //
+    // Print formatted parameters, ready to be copy-pasted in Fishtest.
+    // The perturbation (SPSA c_end) is 15% of the value: for the default range
+    // (0, 2v) the width is 2|v|, so 0.075 * width == 0.15 * |v|. (It was /20.0,
+    // i.e. 10% of the value.)
+    std::cout << n << ","                                     //
+              << v << ","                                     //
+              << r(v).first << ","                            //
+              << r(v).second << ","                           //
+              << (r(v).second - r(v).first) * 0.075 << ","    //
               << "0.0020" << std::endl;
 }
 

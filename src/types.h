@@ -193,11 +193,14 @@ constexpr bool is_mate_or_mated(Value value) { return is_mate(value) || is_mated
 // In the code, we make the assumption that these values
 // are such that non_pawn_material() can be used to uniquely
 // identify the material on the board.
-constexpr Value PawnValue   = 208;
-constexpr Value KnightValue = 781;
-constexpr Value BishopValue = 825;
-constexpr Value RookValue   = 1276;
-constexpr Value QueenValue  = 2538;
+// Tunable: declared as non-const inline ints so they can be flagged with
+// TUNE(). The PieceValue array below is rebuilt from these via a post-update
+// hook (see rebuild_piece_values() in search.cpp).
+inline int PawnValue   = 208;
+inline int KnightValue = 781;
+inline int BishopValue = 825;
+inline int RookValue   = 1276;
+inline int QueenValue  = 2538;
 
 
 // clang-format off
@@ -215,7 +218,9 @@ enum Piece : u8 {
 };
 // clang-format on
 
-constexpr Value PieceValue[PIECE_NB] = {
+// Non-const (and inline for a single shared definition) so the tuned piece
+// values above can be propagated here by rebuild_piece_values().
+inline int PieceValue[PIECE_NB] = {
   VALUE_ZERO, PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_ZERO, VALUE_ZERO,
   VALUE_ZERO, PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_ZERO, VALUE_ZERO};
 
